@@ -10,6 +10,7 @@ import downloadRoutes from "./routes/download.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import cookieParser from "cookie-parser";
+import { testDatabaseConnection } from "./config/database.js";
 
 
 const app = express();
@@ -123,19 +124,23 @@ app.get("/", (_req, res) => {
 // SERVER
 // ==========================================
 
-app.listen(PORT, () => {
-  console.log("");
-  console.log(
-    "🟠 CHAROSOFT DOWNLOAD API"
-  );
+async function start() {
+  // Vérifie la base AVANT d'ouvrir le serveur.
+  await testDatabaseConnection();
 
-  console.log(
-    `🚀 Serveur démarré sur http://localhost:${PORT}`
-  );
+  app.listen(PORT, () => {
+    console.log("");
+    console.log("🟠 CHAROSOFT DOWNLOAD API");
+    console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
+    console.log(`❤️ Health: http://localhost:${PORT}/api/health`);
+    console.log("");
+  });
+}
 
-  console.log(
-    `❤️ Health: http://localhost:${PORT}/api/health`
+start().catch((error) => {
+  console.error(
+    "❌ Démarrage impossible :",
+    error instanceof Error ? error.message : error
   );
-
-  console.log("");
+  process.exit(1);
 });
