@@ -1,19 +1,14 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import {
-  Link,
-} from "react-router-dom";
-import {
   ArrowUpRight,
   CheckCircle2,
   Clock3,
   Download,
   Loader2,
-  Menu,
   Play,
   ShieldCheck,
   Sparkles,
-  X,
   Zap,
 } from "lucide-react";
 
@@ -103,13 +98,7 @@ function App() {
 
   // Affiche ou masque les résultats
   const [showResult, setShowResult] =
-    useState(false);
-
-  // État du menu mobile
-  const [mobileMenu, setMobileMenu] =
-    useState(false);
-
-  // Informations du média analysé
+    useState(false);// Informations du média analysé
   const [media, setMedia] =
     useState<MediaInfo | null>(null);
 
@@ -1024,113 +1013,6 @@ function getMimeType(
   return (
     <div className="app">
       {/* =====================================
-          IFRAME DE TÉLÉCHARGEMENT INVISIBLE
-          ===================================== */}
-
-      <iframe
-        name="charosoft-download-frame"
-        title="Téléchargement"
-        style={{
-          display: "none",
-        }}
-      />
-
-      {/* =====================================
-          HEADER
-          ===================================== */}
-
-      <header className="header">
-        <div className="container header-inner">
-          <a
-            href="#home"
-            className="brand"
-            onClick={() =>
-              setMobileMenu(false)
-            }
-          >
-            <div className="brand-mark">
-              C
-            </div>
-
-            <div className="brand-name">
-              CHAROSOFT{" "}
-              <span>
-                DOWNLOAD
-              </span>
-            </div>
-          </a>
-
-          {/* =================================
-              NAVIGATION DESKTOP / MOBILE
-              ================================= */}
-
-          <nav
-            className={`nav ${
-              mobileMenu
-                ? "nav-open"
-                : ""
-            }`}
-          >
-            <a
-              href="#home"
-              onClick={() =>
-                setMobileMenu(false)
-              }
-            >
-              Accueil
-            </a>
-
-            <a
-              href="/how-it-works"
-              onClick={() =>
-                setMobileMenu(false)
-              }
-            >
-              Comment ça marche
-            </a>
-
-            <a
-              href="/about"
-              onClick={() =>
-                setMobileMenu(false)
-              }
-            >
-              À propos
-            </a>
-
-            <a
-              href="/login"
-              onClick={() =>
-                setMobileMenu(false)
-              }
-            >
-              Connexion
-            </a>
-          </nav>
-
-          {/* =================================
-              BOUTON MENU MOBILE
-              ================================= */}
-
-          <button
-            className="mobile-menu-button"
-            onClick={() =>
-              setMobileMenu(
-                (value) => !value
-              )
-            }
-            aria-label="Menu"
-          >
-            {mobileMenu ? (
-              <X size={22} />
-            ) : (
-              <Menu size={22} />
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* =====================================
           MAIN
           ===================================== */}
 
@@ -1733,48 +1615,7 @@ function getMimeType(
         </section>
       </main>
 
-      {/* =====================================
-          FOOTER
-          ===================================== */}
-
-      <footer className="footer">
-        <div className="container footer-inner">
-
-          {/* ---------------------------------
-              IDENTITÉ
-              --------------------------------- */}
-
-          <div>
-            <div className="footer-brand">
-              CHAROSOFT DOWNLOAD
-            </div>
-
-            <p>
-              Télécharge. Simplement. ·
-              Produit par Charosoft
-            </p>
-          </div>
-
-          {/* ---------------------------------
-              LIENS
-              --------------------------------- */}
-
-          <div className="footer-links">
-            <Link to="/privacy">
-              Confidentialité
-            </Link>
-
-            <Link to="/terms">
-              Conditions
-            </Link>
-
-            <Link to="/contact">
-              Contact
-            </Link>
-                      </div>
-                    </div>
-                  </footer>
-                </div>
+      </div>
               );
 }
 
