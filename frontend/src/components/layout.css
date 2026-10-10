@@ -1,0 +1,154 @@
+/* ==========================================================
+   HEADER + FOOTER COMMUNS — copie fidèle de l'index.html de référence
+   (mêmes valeurs : tailles, couleurs, espacements, point de rupture 760px)
+   Classes préfixées "site-" pour ne jamais entrer en conflit.
+   ========================================================== */
+@layer components {
+  .site-container {
+    width: min(1120px, calc(100% - 40px));
+    margin: 0 auto;
+  }
+
+  /* HEADER */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(8, 9, 11, 0.78);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .site-nav {
+    height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .site-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: max-content;
+  }
+
+  .site-brand-mark {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: linear-gradient(145deg, #ff9a3d, #ff7a00);
+    color: #090909;
+    font-weight: 900;
+    box-shadow: 0 8px 25px rgba(255, 122, 0, 0.2);
+  }
+
+  .site-brand-name {
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    font-size: 17px;
+  }
+
+  .site-brand-name span {
+    color: #ff9a3d;
+  }
+
+  .site-links {
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    color: #a7adb7;
+    font-size: 14px;
+  }
+
+  .site-links a:hover,
+  .site-links a.active {
+    color: #fff;
+  }
+
+  .site-login {
+    border: 1px solid #252a31;
+    padding: 9px 15px;
+    border-radius: 10px;
+    color: #fff;
+    transition: 0.2s;
+  }
+
+  .site-login:hover {
+    border-color: rgba(255, 122, 0, 0.55);
+    color: #ff9a3d;
+  }
+
+  .site-menu {
+    display: none;
+    background: transparent;
+    border: 0;
+    color: white;
+    font-size: 24px;
+  }
+
+  /* FOOTER */
+  .site-footer {
+    border-top: 1px solid #252a31;
+    padding: 30px 0;
+    color: #777e88;
+    font-size: 12px;
+  }
+
+  .site-footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .site-footer-links {
+    display: flex;
+    gap: 18px;
+  }
+
+  .site-footer-links a:hover {
+    color: white;
+  }
+
+  /* MOBILE (≤ 760px, comme la référence) */
+  @media (max-width: 760px) {
+    .site-container {
+      width: min(100% - 28px, 620px);
+    }
+
+    .site-nav {
+      height: 68px;
+    }
+
+    .site-links {
+      display: none;
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 64px;
+      padding: 15px;
+      flex-direction: column;
+      align-items: stretch;
+      background: #101216;
+      border: 1px solid #252a31;
+      border-radius: 14px;
+    }
+
+    .site-links.open {
+      display: flex;
+    }
+
+    .site-menu {
+      display: block;
+    }
+
+    .site-footer-inner {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+}

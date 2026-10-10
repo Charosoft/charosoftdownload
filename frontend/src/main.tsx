@@ -1,3 +1,4 @@
+import "./index.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 
@@ -26,7 +27,6 @@ import Register from "./pages/Register";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 
-import "./index.css";
 
 /**
  * Layout public commun.

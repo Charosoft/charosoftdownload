@@ -207,7 +207,7 @@ export default function Footer() {
           "
         >
           <span>
-            © {new Date().getFullYear()} Charosoft.
+            © {CURRENT_YEAR} Charosoft.
             Tous droits réservés.
           </span>
 
