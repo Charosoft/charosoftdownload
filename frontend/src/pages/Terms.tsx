@@ -6,11 +6,11 @@
  */
 export default function Terms() {
   return (
-    <main className="min-h-screen bg-[#08090b] text-white">
+    <main className="min-h-screen bg-surface text-white">
 
       {/* HERO */}
       <section className="mx-auto max-w-4xl px-6 pb-14 pt-24">
-        <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#ff7a00]">
+        <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-brand">
           CHAROSOFT DOWNLOAD
         </p>
 
@@ -18,7 +18,7 @@ export default function Terms() {
           Conditions d'utilisation
         </h1>
 
-        <p className="mt-5 text-[#a7adb7]">
+        <p className="mt-5 text-muted">
           Les règles essentielles à connaître avant
           d'utiliser le service.
         </p>
@@ -26,14 +26,14 @@ export default function Terms() {
 
       {/* CONTENU */}
       <section className="mx-auto max-w-4xl px-6 pb-24">
-        <div className="space-y-10 rounded-[18px] border border-[#252a31] bg-[#15181d] p-7 md:p-10">
+        <div className="space-y-10 rounded-card border border-line bg-card p-7 md:p-10">
 
           <article>
             <h2 className="text-2xl font-semibold">
               1. Utilisation du service
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               CHAROSOFT DOWNLOAD doit être utilisé dans
               le respect des lois et réglementations
               applicables dans votre juridiction.
@@ -45,7 +45,7 @@ export default function Terms() {
               2. Droits sur les contenus
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               L'utilisateur est responsable des contenus
               qu'il choisit de traiter et doit disposer
               des droits, autorisations ou permissions
@@ -59,7 +59,7 @@ export default function Terms() {
               3. Contenus protégés
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               Le service n'a pas pour objectif de permettre
               le contournement de protections techniques,
               de DRM ou de restrictions d'accès.
@@ -71,7 +71,7 @@ export default function Terms() {
               4. Utilisation abusive
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               Toute utilisation visant à perturber,
               surcharger ou compromettre le service peut
               entraîner des restrictions d'accès.
@@ -83,7 +83,7 @@ export default function Terms() {
               5. Disponibilité
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               La disponibilité des formats et des sources
               dépend notamment des plateformes concernées
               et de leurs changements techniques.
@@ -95,7 +95,7 @@ export default function Terms() {
               6. Évolution du service
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               CHAROSOFT peut faire évoluer, modifier ou
               interrompre certaines fonctionnalités du
               service afin d'assurer son fonctionnement

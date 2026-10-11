@@ -6,11 +6,11 @@
  */
 export default function Privacy() {
   return (
-    <main className="min-h-screen bg-[#08090b] text-white">
+    <main className="min-h-screen bg-surface text-white">
 
       {/* HERO */}
       <section className="mx-auto max-w-4xl px-6 pb-14 pt-24">
-        <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#ff7a00]">
+        <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-brand">
           CHAROSOFT DOWNLOAD
         </p>
 
@@ -18,7 +18,7 @@ export default function Privacy() {
           Politique de confidentialité
         </h1>
 
-        <p className="mt-5 text-[#a7adb7]">
+        <p className="mt-5 text-muted">
           Votre confidentialité est prise en compte dans
           la conception du service.
         </p>
@@ -26,14 +26,14 @@ export default function Privacy() {
 
       {/* CONTENU */}
       <section className="mx-auto max-w-4xl px-6 pb-24">
-        <div className="space-y-10 rounded-[18px] border border-[#252a31] bg-[#15181d] p-7 md:p-10">
+        <div className="space-y-10 rounded-card border border-line bg-card p-7 md:p-10">
 
           <article>
             <h2 className="text-2xl font-semibold">
               1. Informations générales
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               CHAROSOFT DOWNLOAD est un service permettant
               d'analyser des liens média compatibles et de
               générer des fichiers dans les formats proposés
@@ -46,7 +46,7 @@ export default function Privacy() {
               2. Données techniques
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               Certaines informations techniques peuvent être
               traitées afin d'assurer le fonctionnement,
               la sécurité, la maintenance et l'amélioration
@@ -59,7 +59,7 @@ export default function Privacy() {
               3. Liens soumis au service
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               Les liens transmis au service peuvent être
               temporairement traités par l'infrastructure
               nécessaire à l'analyse et au téléchargement.
@@ -71,7 +71,7 @@ export default function Privacy() {
               4. Conservation
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               Les fichiers temporaires générés pendant le
               traitement sont destinés à être supprimés
               après leur utilisation conformément au
@@ -84,7 +84,7 @@ export default function Privacy() {
               5. Sécurité
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               Des mesures techniques sont mises en place
               pour protéger l'infrastructure et limiter
               les utilisations abusives du service.
@@ -96,7 +96,7 @@ export default function Privacy() {
               6. Évolution de la politique
             </h2>
 
-            <p className="mt-4 leading-8 text-[#a7adb7]">
+            <p className="mt-4 leading-8 text-muted">
               Cette politique pourra évoluer lorsque de
               nouvelles fonctionnalités ou de nouveaux
               traitements de données seront introduits.

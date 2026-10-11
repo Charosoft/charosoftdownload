@@ -84,19 +84,19 @@ export default function Register() {
 
   return (
     <main className="flex min-h-[75vh] items-center justify-center px-4 py-12">
-      <section className="w-full max-w-md rounded-2xl border border-white/10 bg-[#101114] p-6 shadow-2xl sm:p-8">
+      <section className="w-full max-w-md rounded-card border border-line bg-surface-2 p-6 shadow-2xl sm:p-8">
         <Link to="/" className="mb-8 flex items-center justify-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-500 text-white">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-white">
             <Download size={23} />
           </span>
           <span className="text-xl font-bold tracking-tight">
-            CHAROSOFT <span className="text-orange-500">DOWNLOAD</span>
+            CHAROSOFT <span className="text-brand">DOWNLOAD</span>
           </span>
         </Link>
 
         <div className="mb-7 text-center">
           <h1 className="text-3xl font-bold text-white">Créer un compte</h1>
-          <p className="mt-2 text-sm text-gray-400">
+          <p className="mt-2 text-sm text-muted">
             Prépare ton espace personnel.
           </p>
         </div>
@@ -110,11 +110,11 @@ export default function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="mb-2 block text-sm text-gray-300">
+            <label htmlFor="name" className="mb-2 block text-sm text-[#c9cdd3]">
               Nom complet
             </label>
-            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-4 focus-within:border-orange-500">
-              <User size={18} className="text-gray-500" />
+            <div className="flex items-center gap-3 rounded-xl border border-line bg-black/30 px-4 focus-within:border-brand">
+              <User size={18} className="text-[#747b85]" />
               <input
                 id="name"
                 name="name"
@@ -123,17 +123,17 @@ export default function Register() {
                 placeholder="Ton nom complet"
                 maxLength={100}
                 required
-                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-600"
+                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-[#666d77]"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="email" className="mb-2 block text-sm text-gray-300">
+            <label htmlFor="email" className="mb-2 block text-sm text-[#c9cdd3]">
               Adresse e-mail
             </label>
-            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-4 focus-within:border-orange-500">
-              <Mail size={18} className="text-gray-500" />
+            <div className="flex items-center gap-3 rounded-xl border border-line bg-black/30 px-4 focus-within:border-brand">
+              <Mail size={18} className="text-[#747b85]" />
               <input
                 id="email"
                 name="email"
@@ -142,17 +142,17 @@ export default function Register() {
                 placeholder="vous@exemple.com"
                 maxLength={255}
                 required
-                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-600"
+                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-[#666d77]"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-2 block text-sm text-gray-300">
+            <label htmlFor="password" className="mb-2 block text-sm text-[#c9cdd3]">
               Mot de passe
             </label>
-            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-4 focus-within:border-orange-500">
-              <Lock size={18} className="text-gray-500" />
+            <div className="flex items-center gap-3 rounded-xl border border-line bg-black/30 px-4 focus-within:border-brand">
+              <Lock size={18} className="text-[#747b85]" />
               <input
                 id="password"
                 name="password"
@@ -161,17 +161,17 @@ export default function Register() {
                 placeholder="Au moins 8 caractères"
                 minLength={8}
                 required
-                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-600"
+                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-[#666d77]"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="mb-2 block text-sm text-gray-300">
+            <label htmlFor="confirmPassword" className="mb-2 block text-sm text-[#c9cdd3]">
               Confirmer le mot de passe
             </label>
-            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 px-4 focus-within:border-orange-500">
-              <Lock size={18} className="text-gray-500" />
+            <div className="flex items-center gap-3 rounded-xl border border-line bg-black/30 px-4 focus-within:border-brand">
+              <Lock size={18} className="text-[#747b85]" />
               <input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -180,7 +180,7 @@ export default function Register() {
                 placeholder="Répète ton mot de passe"
                 minLength={8}
                 required
-                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-600"
+                className="w-full bg-transparent py-3 text-white outline-none placeholder:text-[#666d77]"
               />
             </div>
           </div>
@@ -198,21 +198,21 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 font-semibold text-white transition hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Création en cours…" : "Créer mon compte"}
             {!loading && <ArrowRight size={18} />}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-400">
+        <p className="mt-6 text-center text-sm text-muted">
           Tu as déjà un compte ?{" "}
-          <Link to="/login" className="font-semibold text-orange-500 hover:text-orange-400">
+          <Link to="/login" className="font-semibold text-brand hover:text-brand-light">
             Se connecter
           </Link>
         </p>
 
-        <p className="mt-6 text-center text-xs text-gray-600">
+        <p className="mt-6 text-center text-xs text-[#666d77]">
           Télécharge. Simplement.
         </p>
       </section>
