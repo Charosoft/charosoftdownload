@@ -10,7 +10,7 @@ import {
 } from "react-router-dom";
 
 // Page principale du téléchargement
-import App from "./App";
+import Home from "./pages/Home";
 
 // Pages publiques
 import HowItWorks from "./pages/HowItWorks";
@@ -53,7 +53,7 @@ ReactDOM.createRoot(
       <Routes>
         <Route element={<PublicLayout />}>
           {/* Accueil */}
-          <Route path="/" element={<App />} />
+          <Route path="/" element={<Home />} />
 
           {/* Pages d'information */}
           <Route path="/how-it-works" element={<HowItWorks />} />
