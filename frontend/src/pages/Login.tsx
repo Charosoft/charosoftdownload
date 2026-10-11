@@ -5,6 +5,7 @@ import { Download, Mail, Lock, ArrowRight } from "lucide-react";
 
 import { API_URL } from "../lib/api";
 import { useAuth } from "../features/auth/useAuth";
+import SocialLogin from "../features/auth/SocialLogin";
 import type { AuthUser } from "../features/auth/types";
 
 export default function Login() {
@@ -84,6 +85,13 @@ export default function Login() {
             Connecte-toi à ton espace personnel.
           </p>
         </div>
+
+        <SocialLogin
+          onError={(text) => {
+            setIsError(true);
+            setMessage(text);
+          }}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>

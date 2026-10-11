@@ -3,6 +3,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { login, logout, me, register } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
+import { googleLogin } from "../controllers/google.controller.js";
 
 const router = Router();
 
@@ -39,6 +40,7 @@ function checkOrigin(
 
 router.post("/register", checkOrigin, loginLimiter, register);
 router.post("/login", checkOrigin, loginLimiter, login);
+router.post("/google", checkOrigin, loginLimiter, googleLogin);
 router.get("/me", requireAuth, me);
 router.post("/logout", checkOrigin, logout);
 

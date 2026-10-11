@@ -5,6 +5,7 @@ import { Download, User, Mail, Lock, ArrowRight } from "lucide-react";
 
 import { API_URL } from "../lib/api";
 import { useAuth } from "../features/auth/useAuth";
+import SocialLogin from "../features/auth/SocialLogin";
 
 export default function Register() {
   const { user: currentUser, setUser } = useAuth();
@@ -99,6 +100,13 @@ export default function Register() {
             Prépare ton espace personnel.
           </p>
         </div>
+
+        <SocialLogin
+          onError={(text) => {
+            setIsError(true);
+            setMessage(text);
+          }}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

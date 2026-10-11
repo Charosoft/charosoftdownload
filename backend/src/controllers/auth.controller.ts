@@ -19,7 +19,7 @@ function cookieOptions() {
   };
 }
 
-function setSessionCookie(
+export function setSessionCookie(
   res: Response,
   user: { id: string | number; email: string; role: "user" | "admin" },
 ) {
@@ -132,6 +132,14 @@ export async function login(req: Request, res: Response) {
     );
 
     const user = result.rows[0];
+
+    // Compte créé avec Google : il n'a pas de mot de passe.
+    if (user && !user.password_hash) {
+      return res.status(401).json({
+        message:
+          "Ce compte utilise la connexion avec Google. Clique sur « Continuer avec Google ».",
+      });
+    }
 
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({
