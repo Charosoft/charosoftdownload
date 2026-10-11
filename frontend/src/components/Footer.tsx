@@ -60,12 +60,8 @@ export default function Footer() {
             </div>
 
             <div>
-              <div className="text-sm font-black tracking-[0.12em] text-white">
-                CHAROSOFT
-              </div>
-
-              <div className="mt-1 text-[9px] font-semibold tracking-[0.28em] text-[#ff7a00]">
-                DOWNLOAD
+              <div className="text-sm font-black tracking-[0.13em] text-white">
+                CHAROSOFT <span className="mt-1 text-[14px] font-semibold tracking-[0.28em] text-[#ff7a00]">DOWNLOAD</span>
               </div>
             </div>
           </Link>
