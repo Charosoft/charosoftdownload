@@ -1,14 +1,13 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Download, User, Mail, Lock, ArrowRight } from "lucide-react";
 
-const API_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:3000"
-).replace(/\/$/, "");
+import { API_URL } from "../lib/api";
+import { useAuth } from "../features/auth/useAuth";
 
 export default function Register() {
-  const navigate = useNavigate();
+  const { user: currentUser, setUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -52,11 +51,19 @@ export default function Register() {
         throw new Error(result.message || "Impossible de créer le compte.");
       }
 
-      setIsError(false);
-      setMessage("Compte créé avec succès. Redirection vers la connexion…");
+      if (!result.user || typeof result.user.id !== "string") {
+        throw new Error("Réponse d'inscription invalide.");
+      }
+
       form.reset();
 
-      window.setTimeout(() => navigate("/login"), 1200);
+      // Le serveur a déjà ouvert la session (cookie) : on met à jour l'affichage.
+      setUser({
+        id: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        role: result.user.role,
+      });
     } catch (error) {
       setIsError(true);
       setMessage(
@@ -67,6 +74,11 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Déjà connecté : retour à l'accueil.
+  if (currentUser) {
+    return <Navigate to="/" replace />;
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 
+import { useAuth } from "../features/auth/useAuth";
 import "./layout.css";
 
 /**
@@ -11,12 +12,20 @@ import "./layout.css";
 export default function Header() {
   // Menu mobile (≤ 760px) ouvert ou fermé
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user, loading, logout } = useAuth();
 
   const closeMenu = () => setMenuOpen(false);
+
+  async function handleLogout() {
+    closeMenu();
+    await logout();
+  }
 
   // La page courante est mise en blanc
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "active" : undefined;
+
+  const firstName = user?.name.split(" ")[0];
 
   return (
     <header className="site-header">
@@ -46,9 +55,27 @@ export default function Header() {
           <NavLink to="/about" className={linkClass} onClick={closeMenu}>
             À propos
           </NavLink>
-          <Link className="site-login" to="/login" onClick={closeMenu}>
-            Connexion
-          </Link>
+
+          {/* Rien tant que la session n'est pas vérifiée (évite le clignotement) */}
+          {!loading &&
+            (user ? (
+              <>
+                <span className="site-user" title={user.email}>
+                  {firstName}
+                </span>
+                <button
+                  type="button"
+                  className="site-login"
+                  onClick={handleLogout}
+                >
+                  Déconnexion
+                </button>
+              </>
+            ) : (
+              <Link className="site-login" to="/login" onClick={closeMenu}>
+                Connexion
+              </Link>
+            ))}
         </nav>
 
         <button

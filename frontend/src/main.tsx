@@ -26,6 +26,7 @@ import Register from "./pages/Register";
 // Composants partagés
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import AuthProvider from "./features/auth/AuthProvider";
 
 
 /**
@@ -34,7 +35,7 @@ import Footer from "./components/Footer";
  */
 function PublicLayout() {
   return (
-    <div className="min-h-screen bg-[#08090b] text-white">
+    <div className="min-h-screen text-white">
       <Header />
       <Outlet />
       <Footer />
@@ -50,23 +51,25 @@ ReactDOM.createRoot(
 ).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route element={<PublicLayout />}>
-          {/* Accueil */}
-          <Route path="/" element={<Home />} />
+      <AuthProvider>
+        <Routes>
+          <Route element={<PublicLayout />}>
+            {/* Accueil */}
+            <Route path="/" element={<Home />} />
 
-          {/* Pages d'information */}
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/contact" element={<Contact />} />
+            {/* Pages d'information */}
+            <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/contact" element={<Contact />} />
 
-          {/* Connexion et inscription */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Route>
-      </Routes>
+            {/* Connexion et inscription */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

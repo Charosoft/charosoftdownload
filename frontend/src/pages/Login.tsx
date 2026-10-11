@@ -1,21 +1,14 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Download, Mail, Lock, ArrowRight } from "lucide-react";
 
-const API_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:3000"
-).replace(/\/$/, "");
-
-type AuthUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: "user" | "admin";
-};
+import { API_URL } from "../lib/api";
+import { useAuth } from "../features/auth/useAuth";
+import type { AuthUser } from "../features/auth/types";
 
 export default function Login() {
-  const navigate = useNavigate();
+  const { user: currentUser, setUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -43,11 +36,7 @@ export default function Login() {
         throw new Error(result.message || "Connexion impossible.");
       }
 
-      if (
-        typeof result.token !== "string" ||
-        !result.user ||
-        typeof result.user.id !== "string"
-      ) {
+      if (!result.user || typeof result.user.id !== "string") {
         throw new Error("Réponse de connexion invalide.");
       }
 
@@ -58,14 +47,8 @@ export default function Login() {
         role: result.user.role,
       };
 
-      sessionStorage.setItem("charosoft_user", JSON.stringify(user));
-
-      setIsError(false);
-      setMessage("Connexion réussie. Ouverture de ton espace…");
-
-      window.setTimeout(() => {
-        navigate(user.role === "admin" ? "/admin" : "/");
-      }, 700);
+      // La session est dans le cookie sécurisé : on met à jour l'affichage.
+      setUser(user);
     } catch (error) {
       setIsError(true);
       setMessage(
@@ -76,6 +59,11 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Déjà connecté : retour à l'accueil.
+  if (currentUser) {
+    return <Navigate to="/" replace />;
   }
 
   return (
