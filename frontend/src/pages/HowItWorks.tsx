@@ -71,7 +71,7 @@ export default function HowItWorks() {
         </div>
 
         <h1 className="mx-auto mt-7 max-w-4xl text-4xl font-bold leading-[1.12] tracking-tight sm:text-5xl md:text-6xl">
-          Comment ça fonctionne
+          Comment ça marche
           <span className="mt-1 block text-[#ff7a00]">?</span>
         </h1>
 
