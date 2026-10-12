@@ -11,6 +11,7 @@ import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import cookieParser from "cookie-parser";
 import { testDatabaseConnection } from "./config/database.js";
+import { errorHandler } from "./middleware/error.middleware.js";
 
 
 const app = express();
@@ -119,6 +120,12 @@ app.get("/", (_req, res) => {
     message: "API en ligne",
   });
 });
+
+// ==========================================
+// ERREURS (toujours en dernier)
+// ==========================================
+
+app.use(errorHandler);
 
 // ==========================================
 // SERVER

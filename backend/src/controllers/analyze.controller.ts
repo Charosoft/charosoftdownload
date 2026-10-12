@@ -1,11 +1,13 @@
 import type { Request, Response } from "express";
 import { analyzeMedia } from "../services/media.service.js";
+import { assertPublicHttpUrl, UrlNotAllowedError } from "../utils/urlGuard.js";
+import { describeMediaError } from "../utils/mediaErrors.js";
 
 export async function analyzeUrl(
   req: Request,
   res: Response
 ) {
-  const { url } = req.body;
+  const url = req.body?.url;
 
   if (!url || typeof url !== "string") {
     return res.status(400).json({
@@ -33,6 +35,18 @@ export async function analyzeUrl(
   }
 
   try {
+    await assertPublicHttpUrl(url);
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof UrlNotAllowedError
+          ? error.message
+          : "Veuillez fournir une URL valide.",
+    });
+  }
+
+  try {
     const media = await analyzeMedia(url);
 
     return res.json({
@@ -45,12 +59,14 @@ export async function analyzeUrl(
       error
     );
 
-    return res.status(500).json({
+    const friendly = describeMediaError(
+      error,
+      "L'analyse du média a échoué."
+    );
+
+    return res.status(friendly.status).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "L'analyse du média a échoué.",
+      message: friendly.message,
     });
   }
 }

@@ -2,6 +2,7 @@ import type {
   Request,
   Response,
 } from "express";
+import { assertPublicHttpUrl, UrlNotAllowedError } from "../utils/urlGuard.js";
 
 import {
   createReadStream,
@@ -161,22 +162,6 @@ export async function downloadUrl(
   req: Request,
   res: Response
 ) {
-  console.log(
-    "📥 DOWNLOAD"
-  );
-
-  console.log(
-    "Content-Type:",
-    req.headers[
-      "content-type"
-    ]
-  );
-
-  console.log(
-    "Body:",
-    req.body
-  );
-
   const body =
     req.body ?? {};
 
@@ -261,6 +246,21 @@ export async function downloadUrl(
       success: false,
       message:
         "URL du média invalide.",
+    });
+  }
+
+  /**
+   * ADRESSE PUBLIQUE UNIQUEMENT (anti-SSRF)
+   */
+  try {
+    await assertPublicHttpUrl(url);
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof UrlNotAllowedError
+          ? error.message
+          : "URL du média invalide.",
     });
   }
 
