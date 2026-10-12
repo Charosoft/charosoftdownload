@@ -59,91 +59,70 @@ function runYtDlp(
   onProgress?: (progress: number) => void
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const process = spawn(
+    const child = spawn(
       YTDLP_PYTHON,
       [
         YTDLP_BIN,
+        "--js-runtimes",
+        "deno",
         ...args,
         "--newline",
+        "--progress",
         "-o",
         outputTemplate,
         "--print",
         "after_move:filepath",
-      ]
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] }
     );
 
     let stdout = "";
     let stderr = "";
-
     let lastProgress = 0;
 
-    process.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
+    function readProgress(output: string) {
+      for (const line of output.split(/\r?\n/)) {
+        const match = line.match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
+        if (!match) continue;
 
-    process.stderr.on("data", (data) => {
-      const output = data.toString();
+        const percent = Number(match[1]);
+        const mapped = Math.min(90, Math.floor(percent * 0.9));
 
-      stderr += output;
-
-      const lines =
-        output.split(/\r?\n/);
-
-      for (const line of lines) {
-        const match =
-          line.match(
-            /\[download\]\s+(\d+(?:\.\d+)?)%/
-          );
-
-        if (!match) {
-          continue;
-        }
-
-        const percentage =
-          Number.parseFloat(match[1]);
-
-        if (
-          !Number.isFinite(
-            percentage
-          )
-        ) {
-          continue;
-        }
-
-        /*
-         * On réserve les derniers pourcents
-         * à la préparation et à l'envoi du fichier.
-         */
-        const progress =
-          Math.min(
-            90,
-            Math.max(
-              lastProgress,
-              Math.round(
-                percentage * 0.9
-              )
-            )
-          );
-
-        if (
-          progress >
-          lastProgress
-        ) {
-          lastProgress =
-            progress;
-
-          onProgress?.(
-            progress
-          );
+        if (mapped > lastProgress) {
+          lastProgress = mapped;
+          onProgress?.(mapped);
         }
       }
+    }
+
+    child.stdout.on("data", (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      stdout += text;
+
+      // Limiter la mémoire tout en gardant la sortie récente.
+      if (stdout.length > 200_000) {
+        stdout = stdout.slice(-100_000);
+      }
+
+      readProgress(text);
     });
 
-    process.on("error", (error) => {
-      reject(error);
+    child.stderr.on("data", (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      stderr += text;
+
+      if (stderr.length > 200_000) {
+        stderr = stderr.slice(-100_000);
+      }
+
+      readProgress(text);
     });
 
-    process.on("close", (code) => {
+    child.on("error", (error) => {
+      reject(new Error(`Impossible de lancer yt-dlp : ${error.message}`));
+    });
+
+    child.on("close", (code) => {
       if (code !== 0) {
         reject(
           new Error(
@@ -151,30 +130,20 @@ function runYtDlp(
               `yt-dlp a terminé avec le code ${code}`
           )
         );
-
         return;
       }
 
       onProgress?.(92);
 
-      const lines =
-        stdout
-          .split(/\r?\n/)
-          .map((line) =>
-            line.trim()
-          )
-          .filter(Boolean);
+      const lines = stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
 
-      const finalPath =
-        lines[lines.length - 1];
+      const finalPath = lines[lines.length - 1];
 
       if (!finalPath) {
-        reject(
-          new Error(
-            "yt-dlp n'a pas retourné le chemin du fichier."
-          )
-        );
-
+        reject(new Error("yt-dlp n'a pas retourné le chemin du fichier."));
         return;
       }
 
@@ -203,27 +172,25 @@ function normalizeExtension(
   );
 }
 
+
 function buildFormatSelector(
   options: DownloadOptions
 ): string {
   if (!options.formatId) {
-    throw new Error(
-      "Identifiant de format manquant."
-    );
+    throw new Error("Identifiant de format manquant.");
   }
 
-  if (
-    options.type === "audio"
-  ) {
-    return options.formatId;
+  if (options.type === "audio") {
+    return "bestaudio[protocol=https]/bestaudio";
   }
 
   if (options.hasAudio) {
-    return options.formatId;
+    return `${options.formatId}[protocol=https]/best[protocol=https]`;
   }
 
-  return `${options.formatId}+bestaudio/best`;
+  return `bestvideo[height<=360][protocol=https]+bestaudio[protocol=https]/best[height<=360][protocol=https]`;
 }
+
 
 export async function downloadMedia(
   options: DownloadOptions

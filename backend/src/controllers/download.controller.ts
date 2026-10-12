@@ -17,10 +17,6 @@ import {
   downloadMedia,
 } from "../services/download.service.js";
 
-import {
-  analyzeMedia,
-} from "../services/media.service.js";
-
 /**
  * Protocole de communication :
  *
@@ -172,6 +168,7 @@ export async function downloadUrl(
     quality,
     formatId,
     hasAudio,
+    title,
   } = body;
 
   /**
@@ -306,14 +303,16 @@ export async function downloadUrl(
     );
 
     /**
-     * ANALYSE DU MÉDIA
+     * TITRE DU FICHIER
      *
-     * Permet notamment de récupérer
-     * le vrai titre du média pour
-     * créer le nom final du fichier.
+     * Le site envoie déjà le titre affiché à l'écran : inutile d'analyser de
+     * nouveau le média (plusieurs secondes d'attente avec la barre à 0 %).
+     * Le nom est nettoyé et limité en longueur par le service de téléchargement.
      */
-    const mediaInfo =
-      await analyzeMedia(url);
+    const fileTitle =
+      typeof title === "string" && title.trim()
+        ? title.trim().slice(0, 200)
+        : "media";
 
     /**
      * TÉLÉCHARGEMENT SERVEUR
@@ -321,7 +320,7 @@ export async function downloadUrl(
     const result =
       await downloadMedia({
         url,
-        title: mediaInfo.title,
+        title: fileTitle,
         type:
           type as
             | "video"

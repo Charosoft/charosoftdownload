@@ -5,6 +5,8 @@ export interface MediaFormat {
   type: "video" | "audio";
   extension: string;
   hasAudio: boolean;
+  filesize: number | null;
+  filesizeApprox: number | null;
 }
 
 export interface MediaInfo {

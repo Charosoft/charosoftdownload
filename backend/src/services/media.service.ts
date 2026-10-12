@@ -7,6 +7,8 @@ export interface MediaFormat {
   type: "video" | "audio";
   extension: string;
   hasAudio: boolean;
+  filesize: number | null;
+  filesizeApprox: number | null;
 }
 
 export interface MediaInfo {
@@ -30,6 +32,8 @@ interface YtDlpInfo {
     acodec?: string;
     vcodec?: string;
     protocol?: string;
+    filesize?: number;
+    filesize_approx?: number;
   }>;
 }
 
@@ -47,6 +51,8 @@ function runYtDlp(
       YTDLP_PYTHON,
       [
         YTDLP_BIN,
+        "--js-runtimes",
+        "deno",
         "--dump-single-json",
         "--no-warnings",
         "--skip-download",
@@ -196,6 +202,8 @@ export async function analyzeMedia(
         type: "video",
         extension,
         hasAudio,
+        filesize: format.filesize ?? null,
+        filesizeApprox: format.filesize_approx ?? null,
       };
 
       const score =
@@ -237,6 +245,8 @@ export async function analyzeMedia(
             type: "audio",
             extension,
             hasAudio: true,
+            filesize: format.filesize ?? null,
+            filesizeApprox: format.filesize_approx ?? null,
           }
         );
       }
