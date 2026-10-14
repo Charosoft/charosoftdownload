@@ -1,0 +1,25 @@
+/* Liste des formats : bouton « autres formats » (même style que la référence) */
+@layer components {
+  .more-formats-btn {
+    display: block;
+    margin: 14px auto 0;
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid #252a31;
+    border-radius: 12px;
+    color: #a7adb7;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .more-formats-btn:hover {
+    border-color: rgba(255, 122, 0, 0.55);
+    color: #ff9a3d;
+  }
+
+  .formats-more {
+    margin-top: 14px;
+  }
+}

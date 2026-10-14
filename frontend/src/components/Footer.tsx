@@ -56,7 +56,7 @@ export default function Footer() {
                 text-black
               "
             >
-              C
+            <img src="" alt="" />
             </div>
 
             <div>
