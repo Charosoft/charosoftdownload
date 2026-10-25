@@ -32,7 +32,7 @@ function FormatCard({
 }) {
   const key = `${format.type}-${format.formatId}`;
   const isDownloading = downloadingKey === key;
-  const size = formatSize(format.size);
+  const size = formatSize(format.filesize ?? format.filesizeApprox);
 
   return (
     <div className="format">

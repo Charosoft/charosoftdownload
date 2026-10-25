@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { API_URL } from "../../lib/api";
 import type { MediaFormat, MediaInfo, AnalyzeResponse, Notice } from "./types";
-
+import { useAuth } from "../auth/useAuth";
 /**
  * Toute la logique de la page d'accueil : analyse d'un lien et téléchargement.
  * (Code déplacé tel quel depuis l'ancien App.tsx, sans modification.)
@@ -12,6 +12,10 @@ export function useDownload() {
   /* =======================================================
      ÉTATS DE L'APPLICATION
      ======================================================= */
+
+
+  const { user } = useAuth();
+  const [adSecondsLeft, setAdSecondsLeft] = useState(0);
 
   // URL saisie par l'utilisateur
   const [url, setUrl] = useState("");
@@ -117,6 +121,7 @@ export function useDownload() {
           `${API_URL}/api/analyze`,
           {
             method: "POST",
+            credentials: "include",
 
             headers: {
               "Content-Type":
@@ -219,6 +224,20 @@ function getMimeType(
   }
 }
 
+  const showAd = () =>
+    new Promise<void>((resolve) => {
+      let left = 5;
+      setAdSecondsLeft(left);
+      const timer = setInterval(() => {
+        left -= 1;
+        setAdSecondsLeft(left);
+        if (left <= 0) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 1000);
+    });
+
   const handleDownload = async (
     format: MediaFormat
   ) => {
@@ -258,13 +277,13 @@ function getMimeType(
       /* =====================================================
          APPEL API /api/download
          ===================================================== */
-
+      const adGate = user ? Promise.resolve() : showAd();
       const response =
         await fetch(
           `${API_URL}/api/download`,
           {
             method: "POST",
-
+            credentials: "include",
             headers: {
               "Content-Type":
                 "application/json",
@@ -761,7 +780,7 @@ function getMimeType(
       /* =====================================================
          CRÉATION DU BLOB
          ===================================================== */
-
+      await adGate;
       const chunks =
         fileChunks.map(
           (chunk) => {
@@ -939,6 +958,7 @@ function getMimeType(
     downloadingKey,
     notice,
     downloadProgress,
+    adSecondsLeft,
     handleAnalyze,
     handleDownload,
     videoFormats,

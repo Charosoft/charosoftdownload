@@ -1,22 +1,20 @@
-import type {
-  Request,
-  Response,
-} from "express";
+import type {Request, Response,} from "express";
 import { assertPublicHttpUrl, UrlNotAllowedError } from "../utils/urlGuard.js";
 
-import {
-  createReadStream,
-} from "node:fs";
+import { createReadStream, } from "node:fs";
 
-import {
-  stat,
-} from "node:fs/promises";
+import { stat, } from "node:fs/promises";
 
-import {
-  cleanupFile,
-  downloadMedia,
-} from "../services/download.service.js";
+import {cleanupFile, downloadMedia, } from "../services/download.service.js";
 
+import { pool } from "../config/database.js";
+import { describeMediaError } from "../utils/mediaErrors.js";
+import {
+  LimitExceededError,
+  MAX_DURATION,
+  maxBytesFor,
+  planOf,
+} from "../config/limits.js";
 /**
  * Protocole de communication :
  *
@@ -261,6 +259,9 @@ export async function downloadUrl(
     });
   }
 
+
+  const authUser = res.locals.authUser ?? null;
+  const plan = planOf(authUser);
   /**
    * HEADERS DU FLUX
    */
@@ -325,6 +326,9 @@ export async function downloadUrl(
           type as
             | "video"
             | "audio",
+                plan,
+        maxBytes: maxBytesFor(plan),
+        maxDuration: plan === "premium" ? null : MAX_DURATION,
         extension,
         quality,
         formatId,
@@ -369,6 +373,17 @@ export async function downloadUrl(
       result.fileName,
       fileSize
     );
+
+        if (authUser) {
+      pool
+        .query(
+          `INSERT INTO download_history
+             (user_id, media_url, media_title, platform, format, status)
+           VALUES ($1, $2, $3, $4, $5, 'completed')`,
+          [authUser.id, url, fileTitle, new URL(url).hostname.replace(/^www\./, ""), extension],
+        )
+        .catch((e) => console.error("Historique :", e.message));
+    }
 
     /**
      * ENVOI DU FICHIER
@@ -515,9 +530,9 @@ export async function downloadUrl(
     );
 
     const message =
-      error instanceof Error
+      error instanceof LimitExceededError
         ? error.message
-        : "Le téléchargement a échoué.";
+        : describeMediaError(error, "Le téléchargement a échoué.").message;
 
     /**
      * Si les headers n'ont pas encore

@@ -1,23 +1,15 @@
 import { useDownload } from "../features/download/useDownload";
 import { formatDuration } from "../features/download/utils";
-import type { MediaFormat } from "../features/download/types";
+import FormatList from "../features/download/FormatList";
 
 type DownloadState = ReturnType<typeof useDownload>;
-
-/** Petit libellé sous le nom du format : « Vidéo HD », « Vidéo » ou « Audio ». */
-function formatLabel(format: MediaFormat) {
-  if (format.type === "audio") return "Audio";
-
-  const height = parseInt(format.quality, 10);
-
-  return Number.isFinite(height) && height >= 720 ? "Vidéo HD" : "Vidéo";
-}
 
 /**
  * Affichage de l'accueil.
  * Structure et classes : celles de l'index.html de référence.
  */
 export function HomeView({
+  adSecondsLeft,
   url,
   setUrl,
   isAnalyzing,
@@ -30,8 +22,8 @@ export function HomeView({
   handleDownload,
   videoFormats,
   audioFormats,
+  
 }: DownloadState) {
-  const formats = [...videoFormats, ...audioFormats];
   const hasResult = showResult && media !== null;
   const noticeClass = notice.message
     ? `notice ${notice.type || "info"}`
@@ -107,45 +99,19 @@ export function HomeView({
 
                 <div className="format-title">Choisissez votre format</div>
 
-                <div className="formats">
-                  {formats.map((format) => {
-                    const key = `${format.type}-${format.formatId}`;
-                    const isDownloading = downloadingKey === key;
-
-                    return (
-                      <div className="format" key={key}>
-                        <div className="format-top">
-                          <span className="format-name">{format.format}</span>
-                          <span className="format-quality">
-                            {format.quality}
-                          </span>
-                        </div>
-
-                        <div className="format-size">
-                          {formatLabel(format)}
-                        </div>
-
-                        <button
-                          type="button"
-                          className={
-                            isDownloading
-                              ? "download-btn busy"
-                              : "download-btn"
-                          }
-                          disabled={!!downloadingKey}
-                          onClick={() => handleDownload(format)}
-                        >
-                          {isDownloading
-                            ? downloadProgress < 100
-                              ? `Téléchargement ${downloadProgress}%`
-                              : "Terminé ✓"
-                            : "Télécharger"}
-                        </button>
-                      </div>
-                    );
-                  })}
+                <FormatList
+                  videoFormats={videoFormats}
+                  audioFormats={audioFormats}
+                  downloadingKey={downloadingKey}
+                  downloadProgress={downloadProgress}
+                  onDownload={handleDownload}
+                />
+                {adSecondsLeft > 0 && (
+                <div className="ad-box">
+                  <div id="ad-slot" />
+                  <p>📢 Regarde cette pub avant la fin de ton téléchargement… {adSecondsLeft}s</p>
                 </div>
-
+              )}
                 <div className={noticeClass} id="notice">
                   {notice.message}
                 </div>

@@ -1,59 +1,43 @@
-
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { pool } from "../config/database.js";
 
-export async function requireAuth(
-  _req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+async function resolveUser(req: Request) {
+  const token = req.cookies?.charosoft_session;
+  const secret = process.env.JWT_SECRET;
+  if (!token || !secret) return null;
+
   try {
-    const token = _req.cookies?.charosoft_session;
+    const payload = jwt.verify(token, secret, { algorithms: ["HS256"] });
+    if (typeof payload === "string" || !payload.sub) return null;
 
-    if (!token) {
-      return res.status(401).json({ message: "Connexion requise." });
-    }
-
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      return res.status(500).json({ message: "Configuration serveur invalide." });
-    }
-
-    const payload = jwt.verify(token, secret, {
-      algorithms: ["HS256"],
-    });
-
-    if (typeof payload === "string" || !payload.sub) {
-      return res.status(401).json({ message: "Session invalide." });
-    }
-
-    // Relire l'utilisateur en base : son rôle et son état restent à jour.
-    const result = await pool.query(
-      `SELECT id, name, email, role, is_active
-       FROM users
-       WHERE id = $1`,
+    const { rows } = await pool.query(
+      `SELECT id, name, email, role, plan, is_active FROM users WHERE id = $1`,
       [payload.sub],
     );
+    const u = rows[0];
+    if (!u || !u.is_active) return null;
 
-    const user = result.rows[0];
-
-    if (!user || !user.is_active) {
-      return res.status(401).json({ message: "Compte indisponible." });
-    }
-
-    res.locals.authUser = {
-      id: String(user.id),
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
-
-    return next();
+    return { id: String(u.id), name: u.name, email: u.email, role: u.role, plan: u.plan };
   } catch {
-    return res.status(401).json({ message: "Session invalide ou expirée." });
+    return null;
   }
 }
+
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const user = await resolveUser(req);
+  if (!user) return res.status(401).json({ message: "Connexion requise." });
+  res.locals.authUser = user;
+  return next();
+}
+
+/** Identifie l'utilisateur s'il est connecté, sans jamais bloquer. */
+export async function optionalAuth(req: Request, res: Response, next: NextFunction) {
+  res.locals.authUser = await resolveUser(req);
+  return next();
+}
+
+// requireAdmin : inchangé
 
 export function requireAdmin(
   _req: Request,

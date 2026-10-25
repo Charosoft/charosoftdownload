@@ -12,6 +12,7 @@ import authRoutes from "./routes/auth.routes.js";
 import cookieParser from "cookie-parser";
 import { testDatabaseConnection } from "./config/database.js";
 import { errorHandler } from "./middleware/error.middleware.js";
+import { cleanupOldFiles } from "./services/download.service.js";
 
 
 const app = express();
@@ -134,6 +135,8 @@ app.use(errorHandler);
 async function start() {
   // Vérifie la base AVANT d'ouvrir le serveur.
   await testDatabaseConnection();
+  await cleanupOldFiles();
+  setInterval(() => void cleanupOldFiles(), 30 * 60 * 1000).unref();
 
   app.listen(PORT, () => {
     console.log("");

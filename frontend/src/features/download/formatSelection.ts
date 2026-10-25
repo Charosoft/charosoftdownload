@@ -1,7 +1,7 @@
 import type { MediaFormat } from "./types";
 
 /** Hauteurs mises en avant : le meilleur MP4 pour 1080p, 720p et 360p. */
-const FEATURED_HEIGHTS = [1080, 720, 360];
+const FEATURED_HEIGHTS = [1080, 720, 480, 360];
 
 function heightOf(format: MediaFormat): number {
   return parseInt(format.quality, 10) || 0;

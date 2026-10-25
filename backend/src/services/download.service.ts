@@ -1,11 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import {
-  mkdir,
-  readdir,
-  rm,
-  stat,
-} from "node:fs/promises";
+import { LimitExceededError, type Plan } from "../config/limits.js";
+import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 
@@ -18,22 +14,16 @@ export interface DownloadOptions {
   formatId: string;
   hasAudio: boolean;
   onProgress?: (progress: number) => void;
+  plan: Plan;
+  maxBytes: number | null;
+  maxDuration: number | null;
 }
 
-const TEMP_DIR =
-  process.env.TEMP_DOWNLOAD_DIR ||
-  "./downloads";
+const TEMP_DIR = process.env.TEMP_DOWNLOAD_DIR || "./downloads";
+const YTDLP_PYTHON = process.env.YTDLP_PYTHON || "python3";
+const YTDLP_BIN = process.env.YTDLP_BIN || "/usr/local/bin/yt-dlp";
 
-const YTDLP_PYTHON =
-  process.env.YTDLP_PYTHON ||
-  "python3";
-
-const YTDLP_BIN =
-  process.env.YTDLP_BIN ||
-  "/usr/local/bin/yt-dlp";
-
-
-  function sanitizeFileName(name: string): string {
+function sanitizeFileName(name: string): string {
   return name
     .normalize("NFKC")
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
@@ -43,13 +33,8 @@ const YTDLP_BIN =
     .slice(0, 180);
 }
 
-function buildDownloadFileName(
-  title: string,
-  extension: string
-): string {
-  const cleanTitle =
-    sanitizeFileName(title) || "media";
-
+function buildDownloadFileName(title: string, extension: string): string {
+  const cleanTitle = sanitizeFileName(title) || "media";
   return `CharosoftDownload - ${cleanTitle}.${extension}`;
 }
 
@@ -85,8 +70,7 @@ function runYtDlp(
         const match = line.match(/\[download\]\s+(\d+(?:\.\d+)?)%/);
         if (!match) continue;
 
-        const percent = Number(match[1]);
-        const mapped = Math.min(90, Math.floor(percent * 0.9));
+        const mapped = Math.min(90, Math.floor(Number(match[1]) * 0.9));
 
         if (mapped > lastProgress) {
           lastProgress = mapped;
@@ -98,23 +82,14 @@ function runYtDlp(
     child.stdout.on("data", (chunk: Buffer | string) => {
       const text = chunk.toString();
       stdout += text;
-
-      // Limiter la mémoire tout en gardant la sortie récente.
-      if (stdout.length > 200_000) {
-        stdout = stdout.slice(-100_000);
-      }
-
+      if (stdout.length > 200_000) stdout = stdout.slice(-100_000);
       readProgress(text);
     });
 
     child.stderr.on("data", (chunk: Buffer | string) => {
       const text = chunk.toString();
       stderr += text;
-
-      if (stderr.length > 200_000) {
-        stderr = stderr.slice(-100_000);
-      }
-
+      if (stderr.length > 200_000) stderr = stderr.slice(-100_000);
       readProgress(text);
     });
 
@@ -125,10 +100,7 @@ function runYtDlp(
     child.on("close", (code) => {
       if (code !== 0) {
         reject(
-          new Error(
-            stderr.trim() ||
-              `yt-dlp a terminé avec le code ${code}`
-          )
+          new Error(stderr.trim() || `yt-dlp a terminé avec le code ${code}`)
         );
         return;
       }
@@ -140,10 +112,13 @@ function runYtDlp(
         .map((line) => line.trim())
         .filter(Boolean);
 
+      // Format réellement téléchargé (pour vérifier ce que yt-dlp a choisi).
+      console.log(lines.filter((l) => l.startsWith("FORMAT_CHOISI")).join(" | "));
+
       const finalPath = lines[lines.length - 1];
 
-      if (!finalPath) {
-        reject(new Error("yt-dlp n'a pas retourné le chemin du fichier."));
+      if (!finalPath || finalPath.startsWith("FORMAT_CHOISI")) {
+        reject(new Error(`NO_OUTPUT\n${(stdout + "\n" + stderr).slice(-2000)}`));
         return;
       }
 
@@ -152,11 +127,8 @@ function runYtDlp(
   });
 }
 
-function normalizeExtension(
-  extension: string
-): "mp4" | "mp3" | "m4a" | "webm" {
-  const normalized =
-    extension.toLowerCase();
+function normalizeExtension(extension: string): "mp4" | "mp3" | "m4a" | "webm" {
+  const normalized = extension.toLowerCase();
 
   if (
     normalized === "mp4" ||
@@ -167,59 +139,61 @@ function normalizeExtension(
     return normalized;
   }
 
-  throw new Error(
-    `Format ${extension} non pris en charge.`
-  );
+  throw new Error(`Format ${extension} non pris en charge.`);
 }
 
+function buildFormatSelector(options: DownloadOptions): string {
+  const formatId = options.formatId.trim();
 
-function buildFormatSelector(
-  options: DownloadOptions
-): string {
-  if (!options.formatId) {
-    throw new Error("Identifiant de format manquant.");
+  // Le formatId est inséré dans le sélecteur yt-dlp : on n'accepte que
+  // les caractères d'un identifiant de format réel.
+  if (!/^[A-Za-z0-9._-]+$/.test(formatId)) {
+    throw new Error("Identifiant de format invalide.");
   }
 
   if (options.type === "audio") {
-    return "bestaudio[protocol=https]/bestaudio";
+    // Le format choisi d'abord, sinon le meilleur audio disponible.
+    return `${formatId}/bestaudio[protocol=https]/bestaudio`;
   }
+
+  // Hauteur demandée, par exemple « 720p » → 720.
+  const height = Number.parseInt(options.quality, 10);
+  const limit =
+    Number.isFinite(height) && height > 0 ? `[height<=${height}]` : "";
+
+  // Pour le MP4, le repli reste en H.264 (vrai MP4) au lieu de VP9.
+  const isMp4 = options.extension.toLowerCase() === "mp4";
+  const codec = isMp4 ? "[vcodec^=avc1]" : "";
+  const audio = isMp4 ? "bestaudio[ext=m4a]" : "bestaudio";
 
   if (options.hasAudio) {
-    return `${options.formatId}[protocol=https]/best[protocol=https]`;
+    return `${formatId}/best${limit}${isMp4 ? "[ext=mp4]" : ""}/best${limit}`;
   }
 
-  return `bestvideo[height<=360][protocol=https]+bestaudio[protocol=https]/best[height<=360][protocol=https]`;
+  // Vidéo sans son : on lui associe la meilleure piste audio.
+  return [
+    `${formatId}+${audio}`,
+    `${formatId}+bestaudio`,
+    `bestvideo${limit}${codec}+${audio}`,
+    `best${limit}`,
+  ].join("/");
 }
-
 
 export async function downloadMedia(
   options: DownloadOptions
-): Promise<{
-  filePath: string;
-  fileName: string;
-}> {
-  const extension =
-    normalizeExtension(
-      options.extension
-    );
+): Promise<{ filePath: string; fileName: string }> {
+  const extension = normalizeExtension(options.extension);
 
-  await mkdir(TEMP_DIR, {
-    recursive: true,
-  });
+  await mkdir(TEMP_DIR, { recursive: true });
 
-  const jobId =
-    crypto.randomUUID();
+  const jobId = crypto.randomUUID();
 
-  const temporaryTemplate =
-    path.resolve(
-      TEMP_DIR,
-      `charosoft-${jobId}.%(ext)s`
-    );
+  const temporaryTemplate = path.resolve(
+    TEMP_DIR,
+    `charosoft-${jobId}.%(ext)s`
+  );
 
-  const selector =
-    buildFormatSelector(
-      options
-    );
+  const selector = buildFormatSelector(options);
 
   const args = [
     "--no-warnings",
@@ -227,60 +201,70 @@ export async function downloadMedia(
     "--restrict-filenames",
     "-f",
     selector,
+    "--print",
+    "before_dl:FORMAT_CHOISI %(format_id)s %(resolution)s %(vcodec)s",
   ];
 
-  if (
-    options.type === "audio"
-  ) {
-    args.push(
-      "-x",
-      "--audio-format",
-      extension
-    );
+  if (options.type === "audio") {
+    args.push("-x", "--audio-format", extension);
   }
 
-  if (
-    options.type === "video"
-  ) {
-    args.push(
-      "--merge-output-format",
-      extension
-    );
+  if (options.type === "video") {
+    args.push("--merge-output-format", extension);
   }
 
-  const finalPath =
-    await runYtDlp(
-      [
-        ...args,
-        options.url,
-      ],
+  if (options.maxBytes) {
+    args.push("--max-filesize", `${Math.floor(options.maxBytes / 1024)}k`);
+  }
+
+  if (options.maxDuration) {
+    args.push("--match-filter", `!is_live & duration<=?${options.maxDuration}`);
+  }
+
+  let finalPath: string;
+
+  try {
+    finalPath = await runYtDlp(
+      [...args, options.url],
       temporaryTemplate,
       options.onProgress
     );
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("NO_OUTPUT")) {
+      // On affiche la vraie sortie de yt-dlp pour comprendre la cause.
+      console.error("yt-dlp sans fichier :", error.message);
+
+      if (/larger than|does not pass filter|max-filesize/i.test(error.message)) {
+        throw new LimitExceededError(options.plan);
+      }
+
+      throw new Error("Le média n'a pas pu être téléchargé.");
+    }
+    throw error;
+  }
 
   if (!existsSync(finalPath)) {
-    throw new Error(
-      "Le fichier téléchargé n'a pas été généré."
-    );
+    throw new Error("Le fichier téléchargé n'a pas été généré.");
+  }
+
+  if (options.maxBytes) {
+    const { size } = await stat(finalPath);
+    if (size > options.maxBytes) {
+      await cleanupFile(finalPath);
+      throw new LimitExceededError(options.plan);
+    }
   }
 
   options.onProgress?.(94);
 
-  const fileName = buildDownloadFileName(
-  options.title,
-  extension
-);
+  const fileName = buildDownloadFileName(options.title, extension);
 
-return { filePath: finalPath, fileName };
+  return { filePath: finalPath, fileName };
 }
 
-export async function cleanupFile(
-  filePath: string
-) {
+export async function cleanupFile(filePath: string) {
   try {
-    await rm(filePath, {
-      force: true,
-    });
+    await rm(filePath, { force: true });
   } catch {
     // Nettoyage silencieux
   }
@@ -288,57 +272,24 @@ export async function cleanupFile(
 
 export async function cleanupOldFiles() {
   try {
-    await mkdir(TEMP_DIR, {
-      recursive: true,
-    });
+    await mkdir(TEMP_DIR, { recursive: true });
 
-    const files =
-      await readdir(TEMP_DIR);
-
-    const now =
-      Date.now();
-
-    const maxAge =
-      60 * 60 * 1000;
+    const files = await readdir(TEMP_DIR);
+    const now = Date.now();
+    const maxAge = 60 * 60 * 1000;
 
     for (const file of files) {
-      if (
-        !file.startsWith(
-          "charosoft-"
-        )
-      ) {
-        continue;
-      }
+      if (!file.startsWith("charosoft-")) continue;
 
-      const filePath =
-        path.resolve(
-          TEMP_DIR,
-          file
-        );
+      const filePath = path.resolve(TEMP_DIR, file);
 
       try {
-        const stats =
-          await stat(
-            filePath
-          );
-
-        const age =
-          now -
-          stats.mtimeMs;
-
-        if (
-          age > maxAge
-        ) {
-          await rm(
-            filePath,
-            {
-              force: true,
-            }
-          );
+        const stats = await stat(filePath);
+        if (now - stats.mtimeMs > maxAge) {
+          await rm(filePath, { force: true });
         }
       } catch {
-        // Le fichier peut avoir été supprimé
-        // entre-temps.
+        // Le fichier peut avoir été supprimé entre-temps.
       }
     }
   } catch {
