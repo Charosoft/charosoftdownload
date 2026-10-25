@@ -16,6 +16,7 @@ export interface MediaInfo {
   thumbnail: string | null;
   duration: number | null;
   formats: MediaFormat[];
+  limits?: { anonymous: number; free: number };
 }
 
 export interface AnalyzeResponse {

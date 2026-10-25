@@ -22,6 +22,8 @@ import Contact from "./pages/Contact";
 // Pages de compte
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Account from "./pages/Account";
+import Admin from "./pages/Admin";
 
 // Composants partagés
 import Header from "./components/Header";
@@ -63,6 +65,8 @@ ReactDOM.createRoot(
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/admin" element={<Admin />} />
 
             {/* Connexion et inscription */}
             <Route path="/login" element={<Login />} />

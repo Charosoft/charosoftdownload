@@ -1,0 +1,26 @@
+.space { width: min(760px, calc(100% - 40px)); margin: 40px auto 80px; color: #e8e8ea; }
+.space.wide { width: min(1000px, calc(100% - 40px)); }
+.space h1 { font-size: 1.8rem; margin-bottom: 20px; }
+.space h2 { font-size: 1.1rem; }
+.space-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px; margin-bottom: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; }
+.space-card.column { flex-direction: column; align-items: stretch; }
+.space-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0; }
+.space-muted { color: #8b8d94; font-size: .9rem; }
+.space-error { color: #f87171; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .8rem; background: rgba(255,255,255,.08); }
+.badge.premium { background: rgba(249,115,22,.18); color: #fb923c; }
+.sbtn { padding: 7px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.14); background: transparent; color: inherit; cursor: pointer; font-size: .85rem; }
+.sbtn:hover:not(:disabled) { border-color: #f97316; }
+.sbtn:disabled { opacity: .4; cursor: not-allowed; }
+.sbtn.danger { color: #f87171; }
+.space-input { width: 100%; padding: 12px 14px; margin-bottom: 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: inherit; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.stats strong { font-size: 1.6rem; }
+.table-wrap { overflow-x: auto; }
+.space-table { width: 100%; border-collapse: collapse; }
+.space-table th, .space-table td { padding: 12px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.07); vertical-align: top; }
+.space-table tr.off { opacity: .55; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.history { list-style: none; margin: 0; padding: 0; }
+.history li { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.07); }
+.history-title a { color: #fb923c; word-break: break-word; }

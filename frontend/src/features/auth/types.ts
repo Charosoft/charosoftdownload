@@ -4,4 +4,7 @@ export type AuthUser = {
   name: string;
   email: string;
   role: "user" | "admin";
+  /** Absent juste après une connexion ; rempli dès que le serveur répond. */
+  plan?: "free" | "premium";
+  premiumUntil?: string | null;
 };

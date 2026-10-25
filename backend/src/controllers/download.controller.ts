@@ -1,573 +1,246 @@
-import type {Request, Response,} from "express";
-import { assertPublicHttpUrl, UrlNotAllowedError } from "../utils/urlGuard.js";
-
-import { createReadStream, } from "node:fs";
-
-import { stat, } from "node:fs/promises";
-
-import {cleanupFile, downloadMedia, } from "../services/download.service.js";
-
+import type { Request, Response } from "express";
+import crypto from "node:crypto";
+import { stat } from "node:fs/promises";
 import { pool } from "../config/database.js";
-import { describeMediaError } from "../utils/mediaErrors.js";
 import {
   LimitExceededError,
   MAX_DURATION,
   maxBytesFor,
   planOf,
 } from "../config/limits.js";
-/**
- * Protocole de communication :
- *
- * Chaque message envoyé au frontend est :
- *
- * [4 octets = longueur]
- * [1 octet = type]
- * [payload]
- *
- * Type 0 = progression
- * Type 1 = informations fichier
- * Type 2 = morceau du fichier
- * Type 3 = fin
- * Type 4 = erreur
- */
+import { assertPublicHttpUrl, UrlNotAllowedError } from "../utils/urlGuard.js";
+import { describeMediaError } from "../utils/mediaErrors.js";
+import { cleanupFile, downloadMedia } from "../services/download.service.js";
 
-const TYPE_PROGRESS = 0;
-const TYPE_FILE_INFO = 1;
-const TYPE_FILE_CHUNK = 2;
-const TYPE_DONE = 3;
-const TYPE_ERROR = 4;
+type JobStatus = "running" | "done" | "error";
 
-function createFrame(
-  type: number,
-  payload: Buffer
-): Buffer {
-  const length =
-    1 + payload.length;
-
-  const frame =
-    Buffer.allocUnsafe(
-      4 + length
-    );
-
-  frame.writeUInt32BE(
-    length,
-    0
-  );
-
-  frame.writeUInt8(
-    type,
-    4
-  );
-
-  payload.copy(
-    frame,
-    5
-  );
-
-  return frame;
+interface Job {
+  id: string;
+  status: JobStatus;
+  progress: number;
+  filePath?: string;
+  fileName?: string;
+  size?: number;
+  error?: string;
+  createdAt: number;
+  listeners: Set<Response>;
 }
 
-function sendProgress(
-  res: Response,
-  progress: number
-) {
-  const payload =
-    Buffer.from(
-      String(
-        Math.round(progress)
-      ),
-      "utf8"
-    );
+const jobs = new Map<string, Job>();
+const MAX_RUNNING = Number(process.env.MAX_CONCURRENT_JOBS) || 3;
+const JOB_TTL = 60 * 60 * 1000;
 
-  res.write(
-    createFrame(
-      TYPE_PROGRESS,
-      payload
-    )
-  );
-}
-
-function sendFileInfo(
-  res: Response,
-  fileName: string,
-  fileSize: number
-) {
-  const payload =
-    Buffer.from(
-      JSON.stringify({
-        fileName,
-        fileSize,
-      }),
-      "utf8"
-    );
-
-  res.write(
-    createFrame(
-      TYPE_FILE_INFO,
-      payload
-    )
-  );
-}
-
-function sendFileChunk(
-  res: Response,
-  chunk: Buffer
-) {
-  res.write(
-    createFrame(
-      TYPE_FILE_CHUNK,
-      chunk
-    )
-  );
-}
-
-function sendDone(
-  res: Response
-) {
-  res.write(
-    createFrame(
-      TYPE_DONE,
-      Buffer.alloc(0)
-    )
-  );
-}
-
-function sendError(
-  res: Response,
-  message: string
-) {
-  const payload =
-    Buffer.from(
-      JSON.stringify({
-        message,
-      }),
-      "utf8"
-    );
-
-  res.write(
-    createFrame(
-      TYPE_ERROR,
-      payload
-    )
-  );
-}
-
-export async function downloadUrl(
-  req: Request,
-  res: Response
-) {
-  const body =
-    req.body ?? {};
-
-  const {
-    url,
-    type,
-    extension,
-    quality,
-    formatId,
-    hasAudio,
-    title,
-  } = body;
-
-  /**
-   * PARAMÈTRES
-   */
-  if (
-    typeof url !== "string" ||
-    typeof type !== "string" ||
-    typeof extension !== "string" ||
-    typeof quality !== "string" ||
-    typeof formatId !== "string"
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Les paramètres du téléchargement sont incomplets.",
-    });
-  }
-
-  /**
-   * TYPE
-   */
-  if (
-    ![
-      "video",
-      "audio",
-    ].includes(type)
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Type de média invalide.",
-    });
-  }
-
-  /**
-   * FORMAT ID
-   */
-  if (
-    !formatId.trim()
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Identifiant de format invalide.",
-    });
-  }
-
-  /**
-   * URL
-   */
-  try {
-    const parsedUrl =
-      new URL(url);
-
-    if (
-      ![
-        "http:",
-        "https:",
-      ].includes(
-        parsedUrl.protocol
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Le lien doit utiliser HTTP ou HTTPS.",
-      });
+// Ménage : les téléchargements non récupérés expirent après 1 h.
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, job] of jobs) {
+    if (job.status !== "running" && now - job.createdAt > JOB_TTL) {
+      if (job.filePath) void cleanupFile(job.filePath);
+      jobs.delete(id);
     }
-  } catch {
-    return res.status(400).json({
-      success: false,
-      message:
-        "URL du média invalide.",
-    });
   }
+}, 10 * 60 * 1000).unref();
 
-  /**
-   * ADRESSE PUBLIQUE UNIQUEMENT (anti-SSRF)
-   */
-  try {
-    await assertPublicHttpUrl(url);
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message:
-        error instanceof UrlNotAllowedError
-          ? error.message
-          : "URL du média invalide.",
-    });
+function snapshot(job: Job) {
+  return {
+    status: job.status,
+    progress: job.progress,
+    fileName: job.fileName,
+    size: job.size,
+    error: job.error,
+  };
+}
+
+function emit(job: Job) {
+  const data = `data: ${JSON.stringify(snapshot(job))}\n\n`;
+  for (const res of job.listeners) res.write(data);
+
+  if (job.status !== "running") {
+    for (const res of job.listeners) res.end();
+    job.listeners.clear();
   }
+}
 
+interface JobInput {
+  url: string;
+  title: string;
+  type: "video" | "audio";
+  extension: string;
+  quality: string;
+  formatId: string;
+  hasAudio: boolean;
+}
 
-  const authUser = res.locals.authUser ?? null;
-  const plan = planOf(authUser);
-  /**
-   * HEADERS DU FLUX
-   */
-  res.status(200);
-
-  res.setHeader(
-    "Content-Type",
-    "application/octet-stream"
-  );
-
-  res.setHeader(
-    "Cache-Control",
-    "no-store"
-  );
-
-  res.setHeader(
-    "X-Accel-Buffering",
-    "no"
-  );
+async function runJob(
+  job: Job,
+  input: JobInput,
+  authUser: { id: string } | null
+) {
+  const plan = planOf(authUser as { plan?: string } | null);
 
   try {
-    console.log(
-      "⬇️ Téléchargement :",
-      {
-        url,
-        type,
-        extension,
-        quality,
-        formatId,
-        hasAudio,
-      }
-    );
+    const result = await downloadMedia({
+      ...input,
+      plan,
+      maxBytes: maxBytesFor(plan),
+      maxDuration: plan === "premium" ? null : MAX_DURATION,
+      onProgress: (progress) => {
+        if (progress > job.progress) {
+          job.progress = progress;
+          emit(job);
+        }
+      },
+    });
 
-    /**
-     * PROGRESSION INITIALE
-     */
-    sendProgress(
-      res,
-      0
-    );
+    const { size } = await stat(result.filePath);
 
-    /**
-     * TITRE DU FICHIER
-     *
-     * Le site envoie déjà le titre affiché à l'écran : inutile d'analyser de
-     * nouveau le média (plusieurs secondes d'attente avec la barre à 0 %).
-     * Le nom est nettoyé et limité en longueur par le service de téléchargement.
-     */
-    const fileTitle =
-      typeof title === "string" && title.trim()
-        ? title.trim().slice(0, 200)
-        : "media";
+    job.filePath = result.filePath;
+    job.fileName = result.fileName;
+    job.size = size;
+    job.progress = 100;
+    job.status = "done";
 
-    /**
-     * TÉLÉCHARGEMENT SERVEUR
-     */
-    const result =
-      await downloadMedia({
-        url,
-        title: fileTitle,
-        type:
-          type as
-            | "video"
-            | "audio",
-                plan,
-        maxBytes: maxBytesFor(plan),
-        maxDuration: plan === "premium" ? null : MAX_DURATION,
-        extension,
-        quality,
-        formatId,
-        hasAudio:
-          hasAudio === true ||
-          hasAudio === "true",
-
-        onProgress:
-          (progress) => {
-            if (
-              !res.writableEnded
-            ) {
-              sendProgress(
-                res,
-                progress
-              );
-            }
-          },
-      });
-
-    console.log(
-      "✅ Fichier généré :",
-      result.filePath
-    );
-
-    /**
-     * TAILLE DU FICHIER
-     */
-    const fileStats =
-      await stat(
-        result.filePath
-      );
-
-    const fileSize =
-      fileStats.size;
-
-    /**
-     * INFORMATIONS DU FICHIER
-     */
-    sendFileInfo(
-      res,
-      result.fileName,
-      fileSize
-    );
-
-        if (authUser) {
+    if (authUser) {
       pool
         .query(
           `INSERT INTO download_history
              (user_id, media_url, media_title, platform, format, status)
            VALUES ($1, $2, $3, $4, $5, 'completed')`,
-          [authUser.id, url, fileTitle, new URL(url).hostname.replace(/^www\./, ""), extension],
+          [
+            authUser.id,
+            input.url,
+            input.title,
+            new URL(input.url).hostname.replace(/^www\./, ""),
+            input.extension,
+          ]
         )
         .catch((e) => console.error("Historique :", e.message));
     }
-
-    /**
-     * ENVOI DU FICHIER
-     */
-    const fileStream =
-      createReadStream(
-        result.filePath
-      );
-
-    let sentBytes = 0;
-
-    let lastProgress = 94;
-
-    fileStream.on(
-      "data",
-      (chunk) => {
-        const buffer =
-          Buffer.isBuffer(chunk)
-            ? chunk
-            : Buffer.from(chunk);
-
-        sendFileChunk(
-          res,
-          buffer
-        );
-
-        sentBytes +=
-          buffer.length;
-
-        if (
-          fileSize > 0
-        ) {
-          const transfer =
-            sentBytes /
-            fileSize;
-
-          const progress =
-            Math.min(
-              99,
-              94 +
-                Math.round(
-                  transfer * 5
-                )
-            );
-
-          if (
-            progress >
-            lastProgress
-          ) {
-            lastProgress =
-              progress;
-
-            sendProgress(
-              res,
-              progress
-            );
-          }
-        }
-      }
-    );
-
-    fileStream.on(
-      "end",
-      async () => {
-        try {
-          if (
-            !res.writableEnded
-          ) {
-            sendProgress(
-              res,
-              100
-            );
-
-            sendDone(
-              res
-            );
-
-            res.end();
-          }
-
-          console.log(
-            "✅ Téléchargement envoyé :",
-            result.fileName
-          );
-        } finally {
-          await cleanupFile(
-            result.filePath
-          );
-        }
-      }
-    );
-
-    fileStream.on(
-      "error",
-      async (error) => {
-        console.error(
-          "❌ Erreur lecture fichier :",
-          error
-        );
-
-        await cleanupFile(
-          result.filePath
-        );
-
-        if (
-          !res.writableEnded
-        ) {
-          try {
-            sendError(
-              res,
-              "Erreur pendant la lecture du fichier."
-            );
-          } catch {
-            // La connexion peut déjà être fermée.
-          }
-
-          res.end();
-        }
-      }
-    );
-
-    /**
-     * Si le client ferme la connexion
-     * pendant le téléchargement.
-     */
-    res.on(
-      "close",
-      async () => {
-        if (
-          !res.writableEnded
-        ) {
-          fileStream.destroy();
-
-          await cleanupFile(
-            result.filePath
-          );
-        }
-      }
-    );
   } catch (error) {
-    console.error(
-      "❌ Erreur téléchargement :",
-      error
-    );
-
-    const message =
+    console.error("❌ Erreur téléchargement :", error);
+    job.status = "error";
+    job.error =
       error instanceof LimitExceededError
         ? error.message
         : describeMediaError(error, "Le téléchargement a échoué.").message;
-
-    /**
-     * Si les headers n'ont pas encore
-     * été envoyés, on peut retourner
-     * une réponse JSON classique.
-     */
-    if (
-      !res.headersSent
-    ) {
-      return res.status(500).json({
-        success: false,
-        message,
-      });
-    }
-
-    /**
-     * Les headers sont déjà envoyés.
-     *
-     * On utilise donc notre protocole
-     * personnalisé pour transmettre
-     * l'erreur au frontend.
-     */
-    if (
-      !res.writableEnded
-    ) {
-      try {
-        sendError(
-          res,
-          message
-        );
-      } catch {
-        // La connexion peut déjà être fermée.
-      }
-
-      res.end();
-    }
   }
+
+  emit(job);
+}
+
+/** POST /api/download : lance la préparation et renvoie un jobId. */
+export async function startDownload(req: Request, res: Response) {
+  const body = req.body ?? {};
+
+  if (
+    typeof body.url !== "string" ||
+    typeof body.formatId !== "string" ||
+    typeof body.extension !== "string" ||
+    (body.type !== "video" && body.type !== "audio")
+  ) {
+    return res.status(400).json({ success: false, message: "Requête invalide." });
+  }
+
+  try {
+    await assertPublicHttpUrl(body.url);
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof UrlNotAllowedError ? error.message : "URL invalide.",
+    });
+  }
+
+  const running = [...jobs.values()].filter((j) => j.status === "running").length;
+  if (running >= MAX_RUNNING) {
+    return res.status(503).json({
+      success: false,
+      message: "Le serveur est occupé, réessaie dans un instant.",
+    });
+  }
+
+  const job: Job = {
+    id: crypto.randomUUID(),
+    status: "running",
+    progress: 0,
+    createdAt: Date.now(),
+    listeners: new Set(),
+  };
+  jobs.set(job.id, job);
+
+  res.status(202).json({ success: true, jobId: job.id });
+
+  void runJob(
+    job,
+    {
+      url: body.url,
+      title: typeof body.title === "string" ? body.title : "media",
+      type: body.type,
+      extension: body.extension,
+      quality: typeof body.quality === "string" ? body.quality : "",
+      formatId: body.formatId,
+      hasAudio: Boolean(body.hasAudio),
+    },
+    res.locals.authUser ?? null
+  );
+}
+
+/** GET /api/download/:jobId/events : progression en direct (SSE). */
+export function jobEvents(req: Request, res: Response) {
+  const job = jobs.get(String(req.params.jobId));
+
+  if (!job) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Téléchargement introuvable ou expiré." });
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  res.write(`data: ${JSON.stringify(snapshot(job))}\n\n`);
+
+  if (job.status !== "running") {
+    res.end();
+    return;
+  }
+
+  job.listeners.add(res);
+  const ping = setInterval(() => res.write(": ping\n\n"), 15000);
+
+  req.on("close", () => {
+    clearInterval(ping);
+    job.listeners.delete(res);
+  });
+}
+
+/** GET /api/download/:jobId/file : le navigateur télécharge directement. */
+export function jobFile(req: Request, res: Response) {
+  const job = jobs.get(String(req.params.jobId));
+
+  if (!job || job.status !== "done" || !job.filePath || !job.fileName) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Fichier introuvable ou expiré." });
+  }
+
+  const { filePath } = job;
+
+  // Le fichier est supprimé une fois entièrement envoyé.
+  res.on("finish", () => {
+    if (res.statusCode === 200) {
+      void cleanupFile(filePath);
+      jobs.delete(job.id);
+    }
+  });
+
+  res.download(filePath, job.fileName, (error) => {
+    if (error && !res.headersSent) {
+      res.status(500).json({ success: false, message: "Envoi du fichier impossible." });
+    }
+  });
 }

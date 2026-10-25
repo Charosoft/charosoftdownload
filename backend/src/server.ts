@@ -13,6 +13,8 @@ import cookieParser from "cookie-parser";
 import { testDatabaseConnection } from "./config/database.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import { cleanupOldFiles } from "./services/download.service.js";
+import adminRoutes from "./routes/admin.routes.js";
+import accountRoutes from "./routes/account.routes.js";
 
 
 const app = express();
@@ -109,6 +111,8 @@ app.use(
   "/api/download",
   downloadRoutes
 );
+app.use("/api/admin", adminRoutes);
+app.use("/api/account", accountRoutes);
 
 // ==========================================
 // ROOT

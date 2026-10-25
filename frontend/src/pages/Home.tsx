@@ -1,6 +1,7 @@
 import { useDownload } from "../features/download/useDownload";
 import { formatDuration } from "../features/download/utils";
 import FormatList from "../features/download/FormatList";
+import GoogleOneTap from "../features/auth/GoogleOneTap";
 
 type DownloadState = ReturnType<typeof useDownload>;
 
@@ -31,6 +32,7 @@ export function HomeView({
 
   return (
     <main id="home">
+      <GoogleOneTap />
       <section className="hero">
         <div className="container hero-content">
           <div className="eyebrow">
@@ -105,6 +107,7 @@ export function HomeView({
                   downloadingKey={downloadingKey}
                   downloadProgress={downloadProgress}
                   onDownload={handleDownload}
+                  limits={media?.limits}
                 />
                 {adSecondsLeft > 0 && (
                 <div className="ad-box">

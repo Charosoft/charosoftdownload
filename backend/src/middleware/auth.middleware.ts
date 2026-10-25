@@ -12,14 +12,26 @@ async function resolveUser(req: Request) {
     if (typeof payload === "string" || !payload.sub) return null;
 
     const { rows } = await pool.query(
-      `SELECT id, name, email, role, plan, is_active FROM users WHERE id = $1`,
+      `SELECT id, name, email, role, is_active, premium_until,
+              CASE WHEN plan = 'premium'
+                    AND (premium_until IS NULL OR premium_until > NOW())
+                   THEN 'premium' ELSE 'free' END AS plan
+         FROM users WHERE id = $1`,
       [payload.sub],
     );
     const u = rows[0];
     if (!u || !u.is_active) return null;
 
-    return { id: String(u.id), name: u.name, email: u.email, role: u.role, plan: u.plan };
-  } catch {
+    return {
+      id: String(u.id),
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      plan: u.plan,
+      premiumUntil: u.premium_until,
+    };
+  } catch (error) {
+    console.error("Session :", error instanceof Error ? error.message : error);
     return null;
   }
 }

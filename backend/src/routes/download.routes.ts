@@ -1,6 +1,10 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { downloadUrl } from "../controllers/download.controller.js";
+import {
+  jobEvents,
+  jobFile,
+  startDownload,
+} from "../controllers/download.controller.js";
 import { optionalAuth } from "../middleware/auth.middleware.js";
 
 const router = Router();
@@ -12,9 +16,14 @@ const downloadLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
   skip: (_req, res) => Boolean(res.locals.authUser),
-  message: { success: false, message: "Trop de téléchargements. Connecte-toi ou réessaie plus tard." },
+  message: {
+    success: false,
+    message: "Trop de téléchargements. Connecte-toi ou réessaie plus tard.",
+  },
 });
 
-router.post("/", optionalAuth, downloadLimiter, downloadUrl);
+router.post("/", optionalAuth, downloadLimiter, startDownload);
+router.get("/:jobId/events", jobEvents);
+router.get("/:jobId/file", jobFile);
 
 export default router;

@@ -42,6 +42,14 @@ interface YtDlpInfo {
   formats?: YtDlpFormat[];
 }
 
+/** Ce qu'il faut savoir pour corriger la taille d'un format plus tard. */
+interface SizeMeta {
+  url?: string;
+  exact: boolean;
+  estimate: number | null;
+  audio: number;
+}
+
 const YTDLP_PYTHON = process.env.YTDLP_PYTHON || "python3";
 const YTDLP_BIN = process.env.YTDLP_BIN || "/usr/local/bin/yt-dlp";
 
@@ -90,6 +98,22 @@ function runYtDlp(url: string): Promise<YtDlpInfo> {
   });
 }
 
+/** Format HLS (liste de lecture) : pas de taille fiable, téléchargement lent. */
+function isHls(f: YtDlpFormat): boolean {
+  return !!f.protocol && f.protocol.includes("m3u8");
+}
+
+/** Taille exacte donnée par la plateforme (celle que yt-dlp contrôle aussi). */
+function exactSize(f: YtDlpFormat): number | null {
+  return f.filesize || f.filesize_approx || null;
+}
+
+/** Estimation par le débit : jamais pour le HLS, dont le débit est trompeur. */
+function estimateSize(f: YtDlpFormat, duration: number | null): number | null {
+  if (isHls(f) || !f.tbr || !duration) return null;
+  return Math.round(((f.tbr * 1000) / 8) * duration);
+}
+
 function videoFormatScore(format: YtDlpFormat): number {
   let score = 0;
 
@@ -99,6 +123,10 @@ function videoFormatScore(format: YtDlpFormat): number {
   if (hasAudio) score += 100;
   if (extension === "mp4") score += 20;
   if (format.vcodec?.startsWith("avc1")) score += 10;
+
+  // On préfère les formats directs dont la taille est exacte.
+  if (exactSize(format)) score += 40;
+  if (isHls(format)) score -= 60;
 
   return score;
 }
@@ -118,14 +146,6 @@ function standardHeight(width?: number, height?: number): number {
     if (step <= effective * 1.06) best = step;
   }
   return best;
-}
-
-/** Estimation de taille (utilisée tant que la vraie taille n'est pas connue). */
-function sizeOf(f: YtDlpFormat, duration: number | null): number | null {
-  if (f.filesize) return f.filesize;
-  if (f.filesize_approx) return f.filesize_approx;
-  if (f.tbr && duration) return Math.round(((f.tbr * 1000) / 8) * duration);
-  return null;
 }
 
 /** Taille réelle demandée au serveur du fichier (sans le télécharger). */
@@ -166,52 +186,61 @@ export async function analyzeMedia(url: string): Promise<MediaInfo> {
 
   const info = await runYtDlp(url);
   const duration = info.duration ?? null;
+  const allFormats = info.formats ?? [];
 
   const videoMap = new Map<string, { format: MediaFormat; score: number }>();
   const audioMap = new Map<string, MediaFormat>();
+  const meta = new Map<string, SizeMeta>();
 
-  // Meilleure piste audio : sa taille s'ajoute aux vidéos sans son.
-  const bestAudio = (info.formats ?? [])
+  // Pistes audio : le MP4 reçoit du M4A, les autres la meilleure piste.
+  const audioTracks = allFormats
     .filter(
       (f) =>
         f.acodec && f.acodec !== "none" && (!f.vcodec || f.vcodec === "none")
     )
-    .sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0))[0];
+    .sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0));
 
-  const audioSize = bestAudio ? (sizeOf(bestAudio, duration) ?? 0) : 0;
+  const audioSizeOf = (f?: YtDlpFormat) =>
+    f ? (exactSize(f) ?? estimateSize(f, duration) ?? 0) : 0;
 
-  // Adresse de chaque format (pour lire sa vraie taille plus bas).
-  const urls = new Map<string, string>();
+  const audioForMp4 = audioSizeOf(
+    audioTracks.find((f) => f.ext === "m4a") ?? audioTracks[0]
+  );
+  const audioForOthers = audioSizeOf(audioTracks[0]);
 
-  for (const format of info.formats ?? []) {
+  for (const format of allFormats) {
     const formatId = format.format_id?.trim();
     const extension = format.ext?.toLowerCase();
 
     if (!formatId || !extension) continue;
 
-    if (format.url) urls.set(formatId, format.url);
-
     const hasVideo = !!format.vcodec && format.vcodec !== "none";
     const hasAudio = !!format.acodec && format.acodec !== "none";
+
+    const exact = exactSize(format);
+    const estimate = estimateSize(format, duration);
+    const own = exact ?? estimate;
 
     // ===== VIDEO =====
     if (hasVideo && typeof format.height === "number" && format.height > 0) {
       const std = standardHeight(format.width, format.height);
-      const quality = `${std}p`;
       const key = `video-${extension}-${std}`;
 
-      const ownSize = sizeOf(format, duration);
-      const totalSize =
-        ownSize === null ? null : ownSize + (hasAudio ? 0 : audioSize);
+      // Une vidéo sans son sera fusionnée avec une piste audio.
+      const audioPart = hasAudio
+        ? 0
+        : extension === "mp4"
+          ? audioForMp4
+          : audioForOthers;
 
       const candidate: MediaFormat = {
         formatId,
         format: extension.toUpperCase(),
-        quality,
+        quality: `${std}p`,
         type: "video",
         extension,
         hasAudio,
-        filesize: totalSize,
+        filesize: own === null ? null : own + audioPart,
         filesizeApprox: null,
       };
 
@@ -220,6 +249,12 @@ export async function analyzeMedia(url: string): Promise<MediaInfo> {
 
       if (!existing || score > existing.score) {
         videoMap.set(key, { format: candidate, score });
+        meta.set(formatId, {
+          url: isHls(format) ? undefined : format.url,
+          exact: exact !== null,
+          estimate,
+          audio: audioPart,
+        });
       }
     }
 
@@ -235,8 +270,14 @@ export async function analyzeMedia(url: string): Promise<MediaInfo> {
           type: "audio",
           extension,
           hasAudio: true,
-          filesize: sizeOf(format, duration),
+          filesize: own,
           filesizeApprox: null,
+        });
+        meta.set(formatId, {
+          url: isHls(format) ? undefined : format.url,
+          exact: exact !== null,
+          estimate,
+          audio: 0,
         });
       }
     }
@@ -245,8 +286,8 @@ export async function analyzeMedia(url: string): Promise<MediaInfo> {
   const videoFormats = Array.from(videoMap.values())
     .map((item) => item.format)
     .sort((a, b) => {
-      const heightA = Number.parseInt(a.quality.replace("p", ""), 10) || 0;
-      const heightB = Number.parseInt(b.quality.replace("p", ""), 10) || 0;
+      const heightA = Number.parseInt(a.quality, 10) || 0;
+      const heightB = Number.parseInt(b.quality, 10) || 0;
       return heightB - heightA;
     });
 
@@ -267,16 +308,21 @@ export async function analyzeMedia(url: string): Promise<MediaInfo> {
     (a, b) => audioPriority(a.extension) - audioPriority(b.extension)
   );
 
-  // Vraies tailles : elles remplacent les estimations quand le serveur répond.
-  const audioReal = (await realSize(bestAudio?.url)) ?? audioSize;
-
+  // Vraie taille demandée au serveur, seulement quand la plateforme n'en donne pas.
   await Promise.all(
     [...videoFormats, ...audioFormats].map(async (f) => {
-      const exact = await realSize(urls.get(f.formatId));
-      if (!exact) return;
+      const m = meta.get(f.formatId);
+      if (!m || m.exact || !m.url) return;
 
-      // Une vidéo sans son sera fusionnée avec la piste audio.
-      f.filesize = f.type === "video" && !f.hasAudio ? exact + audioReal : exact;
+      const real = await realSize(m.url);
+      if (!real) return;
+
+      // Garde-fou : une taille aberrante vient d'une mauvaise réponse.
+      if (m.estimate && (real < m.estimate * 0.4 || real > m.estimate * 2.5)) {
+        return;
+      }
+
+      f.filesize = real + m.audio;
     })
   );
 
@@ -285,7 +331,7 @@ export async function analyzeMedia(url: string): Promise<MediaInfo> {
     source,
     title: info.title ?? `${source} — média détecté`,
     thumbnail: info.thumbnail ?? null,
-    duration: info.duration ?? null,
+    duration,
     formats: [...videoFormats, ...audioFormats],
   };
 }

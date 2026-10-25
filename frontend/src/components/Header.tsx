@@ -25,7 +25,6 @@ export default function Header() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? "active" : undefined;
 
-  const firstName = user?.name.split(" ")[0];
 
   return (
     <header className="site-header">
@@ -60,9 +59,14 @@ export default function Header() {
           {!loading &&
             (user ? (
               <>
-                <span className="site-user" title={user.email}>
-                  {firstName}
-                </span>
+                <NavLink to="/account" className={linkClass} onClick={closeMenu}>
+                  Mon espace
+                </NavLink>
+                {user.role === "admin" && (
+                  <NavLink to="/admin" className={linkClass} onClick={closeMenu}>
+                    Admin
+                  </NavLink>
+                )}
                 <button
                   type="button"
                   className="site-login"

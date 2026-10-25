@@ -1,12 +1,10 @@
 import type { Request, Response } from "express";
 import { analyzeMedia } from "../services/media.service.js";
+import { publicLimits } from "../config/limits.js";
 import { assertPublicHttpUrl, UrlNotAllowedError } from "../utils/urlGuard.js";
 import { describeMediaError } from "../utils/mediaErrors.js";
 
-export async function analyzeUrl(
-  req: Request,
-  res: Response
-) {
+export async function analyzeUrl(req: Request, res: Response) {
   const url = req.body?.url;
 
   if (!url || typeof url !== "string") {
@@ -51,18 +49,12 @@ export async function analyzeUrl(
 
     return res.json({
       success: true,
-      data: media,
+      data: { ...media, limits: publicLimits() },
     });
   } catch (error) {
-    console.error(
-      "❌ Erreur yt-dlp / analyse média :",
-      error
-    );
+    console.error("❌ Erreur yt-dlp / analyse média :", error);
 
-    const friendly = describeMediaError(
-      error,
-      "L'analyse du média a échoué."
-    );
+    const friendly = describeMediaError(error, "L'analyse du média a échoué.");
 
     return res.status(friendly.status).json({
       success: false,

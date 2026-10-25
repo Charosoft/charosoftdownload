@@ -39,6 +39,32 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, []);
 
+    // Après une connexion ou une inscription, on récupère le plan (gratuit / premium).
+  useEffect(() => {
+    if (!user || user.plan) return;
+
+    const controller = new AbortController();
+
+    async function loadPlan() {
+      try {
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        const data = response.ok ? await response.json() : null;
+
+        if (data?.user && !controller.signal.aborted) setUser(data.user);
+      } catch {
+        // Sans réponse, la personne garde le comportement « gratuit ».
+      }
+    }
+
+    void loadPlan();
+
+    return () => controller.abort();
+  }, [user]);
+
   const logout = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/api/auth/logout`, {
