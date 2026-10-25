@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import {
+  jobCancel,
   jobEvents,
   jobFile,
   startDownload,
@@ -25,5 +26,6 @@ const downloadLimiter = rateLimit({
 router.post("/", optionalAuth, downloadLimiter, startDownload);
 router.get("/:jobId/events", jobEvents);
 router.get("/:jobId/file", jobFile);
+router.post("/:jobId/cancel", jobCancel);
 
 export default router;

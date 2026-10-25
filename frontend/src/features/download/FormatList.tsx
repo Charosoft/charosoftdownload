@@ -12,6 +12,7 @@ type FormatListProps = {
   downloadingKey: string | null;
   downloadProgress: number;
   onDownload: (format: MediaFormat) => void;
+  onCancel: () => void;
   limits?: MediaInfo["limits"];
 };
 
@@ -35,6 +36,7 @@ function FormatCard({
   downloadingKey,
   downloadProgress,
   onDownload,
+  onCancel,
   limits,
 }: Omit<FormatListProps, "videoFormats" | "audioFormats"> & {
   format: MediaFormat;
@@ -46,7 +48,6 @@ function FormatCard({
   const bytes = format.filesize ?? format.filesizeApprox;
   const size = formatSize(bytes);
 
-  // Limite qui s'applique à la personne en ce moment.
   // Premium : aucune limite de taille.
   const cap =
     !limits || user?.plan === "premium"
@@ -54,6 +55,7 @@ function FormatCard({
       : user
         ? limits.free
         : limits.anonymous;
+
   const tooBig = cap !== null && bytes !== null && bytes > cap;
 
   return (
@@ -94,6 +96,12 @@ function FormatCard({
             : "Télécharger"}
         </button>
       )}
+
+      {isDownloading && downloadProgress < 100 && (
+        <button type="button" className="download-btn locked" onClick={onCancel}>
+          Annuler ✕
+        </button>
+      )}
     </div>
   );
 }
@@ -108,6 +116,7 @@ export default function FormatList({
   downloadingKey,
   downloadProgress,
   onDownload,
+  onCancel,
   limits,
 }: FormatListProps) {
   const { user } = useAuth();
@@ -122,6 +131,7 @@ export default function FormatList({
       downloadingKey={downloadingKey}
       downloadProgress={downloadProgress}
       onDownload={onDownload}
+      onCancel={onCancel}
       limits={limits}
     />
   );

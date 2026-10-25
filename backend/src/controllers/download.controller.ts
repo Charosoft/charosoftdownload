@@ -24,22 +24,45 @@ interface Job {
   error?: string;
   createdAt: number;
   listeners: Set<Response>;
+  abort: AbortController;
+  orphanTimer?: ReturnType<typeof setTimeout>;
 }
 
 const jobs = new Map<string, Job>();
 const MAX_RUNNING = Number(process.env.MAX_CONCURRENT_JOBS) || 3;
-const JOB_TTL = 60 * 60 * 1000;
+const JOB_TTL = 60 * 60 * 1000; // un fichier prêt non récupéré expire après 1 h
+const MAX_RUN = 45 * 60 * 1000; // durée maximale d'une préparation
+const ORPHAN_DELAY = 2 * 60 * 1000; // sans personne pour suivre le téléchargement
 
-// Ménage : les téléchargements non récupérés expirent après 1 h.
+// Ménage chaque minute :
+// - une préparation trop longue est arrêtée ;
+// - un fichier non récupéré expire après 1 h.
 setInterval(() => {
   const now = Date.now();
+
   for (const [id, job] of jobs) {
-    if (job.status !== "running" && now - job.createdAt > JOB_TTL) {
+    if (job.status === "running") {
+      if (now - job.createdAt > MAX_RUN) job.abort.abort();
+    } else if (now - job.createdAt > JOB_TTL) {
       if (job.filePath) void cleanupFile(job.filePath);
       jobs.delete(id);
     }
   }
-}, 10 * 60 * 1000).unref();
+}, 60 * 1000).unref();
+
+/**
+ * Si plus personne ne suit ce téléchargement au bout de ORPHAN_DELAY
+ * (onglet fermé, page jamais rechargée), on l'arrête pour libérer la place.
+ */
+function scheduleOrphanCheck(job: Job) {
+  if (job.orphanTimer) clearTimeout(job.orphanTimer);
+
+  job.orphanTimer = setTimeout(() => {
+    if (job.status === "running" && job.listeners.size === 0) {
+      job.abort.abort();
+    }
+  }, ORPHAN_DELAY);
+}
 
 function snapshot(job: Job) {
   return {
@@ -56,6 +79,7 @@ function emit(job: Job) {
   for (const res of job.listeners) res.write(data);
 
   if (job.status !== "running") {
+    if (job.orphanTimer) clearTimeout(job.orphanTimer);
     for (const res of job.listeners) res.end();
     job.listeners.clear();
   }
@@ -82,6 +106,7 @@ async function runJob(
     const result = await downloadMedia({
       ...input,
       plan,
+      signal: job.abort.signal,
       maxBytes: maxBytesFor(plan),
       maxDuration: plan === "premium" ? null : MAX_DURATION,
       onProgress: (progress) => {
@@ -117,12 +142,17 @@ async function runJob(
         .catch((e) => console.error("Historique :", e.message));
     }
   } catch (error) {
-    console.error("❌ Erreur téléchargement :", error);
     job.status = "error";
-    job.error =
-      error instanceof LimitExceededError
-        ? error.message
-        : describeMediaError(error, "Le téléchargement a échoué.").message;
+
+    if (error instanceof Error && error.message === "CANCELLED") {
+      job.error = "Téléchargement annulé.";
+    } else {
+      console.error("❌ Erreur téléchargement :", error);
+      job.error =
+        error instanceof LimitExceededError
+          ? error.message
+          : describeMediaError(error, "Le téléchargement a échoué.").message;
+    }
   }
 
   emit(job);
@@ -165,8 +195,12 @@ export async function startDownload(req: Request, res: Response) {
     progress: 0,
     createdAt: Date.now(),
     listeners: new Set(),
+    abort: new AbortController(),
   };
   jobs.set(job.id, job);
+
+  // Si personne ne se connecte au suivi, on arrête au bout de 2 minutes.
+  scheduleOrphanCheck(job);
 
   res.status(202).json({ success: true, jobId: job.id });
 
@@ -210,11 +244,23 @@ export function jobEvents(req: Request, res: Response) {
   }
 
   job.listeners.add(res);
+
+  // Quelqu'un suit de nouveau ce téléchargement : on annule l'arrêt prévu.
+  if (job.orphanTimer) {
+    clearTimeout(job.orphanTimer);
+    job.orphanTimer = undefined;
+  }
+
   const ping = setInterval(() => res.write(": ping\n\n"), 15000);
 
   req.on("close", () => {
     clearInterval(ping);
     job.listeners.delete(res);
+
+    // Plus personne ne suit : sans retour sous 2 minutes, on arrête.
+    if (job.status === "running" && job.listeners.size === 0) {
+      scheduleOrphanCheck(job);
+    }
   });
 }
 
@@ -243,4 +289,23 @@ export function jobFile(req: Request, res: Response) {
       res.status(500).json({ success: false, message: "Envoi du fichier impossible." });
     }
   });
+}
+
+/** POST /api/download/:jobId/cancel : arrête la préparation et nettoie. */
+export function jobCancel(req: Request, res: Response) {
+  const job = jobs.get(String(req.params.jobId));
+
+  if (job) {
+    if (job.orphanTimer) clearTimeout(job.orphanTimer);
+
+    if (job.status === "running") {
+      job.abort.abort();
+    } else if (job.filePath) {
+      void cleanupFile(job.filePath);
+    }
+
+    jobs.delete(job.id);
+  }
+
+  res.json({ ok: true });
 }

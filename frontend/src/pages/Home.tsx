@@ -21,9 +21,10 @@ export function HomeView({
   downloadProgress,
   handleAnalyze,
   handleDownload,
+  cancelDownload,
   videoFormats,
   audioFormats,
-  
+  resumeTitle,
 }: DownloadState) {
   const hasResult = showResult && media !== null;
   const noticeClass = notice.message
@@ -71,6 +72,34 @@ export function HomeView({
             </button>
           </form>
 
+          {/* Téléchargement repris après un rechargement de la page */}
+          {resumeTitle && (
+            <div className="ad-box">
+              <p>
+                Téléchargement en cours : <strong>{resumeTitle}</strong> —{" "}
+                {downloadProgress}%
+              </p>
+              <button
+                type="button"
+                className="sbtn danger"
+                onClick={cancelDownload}
+              >
+                Annuler ✕
+              </button>
+            </div>
+          )}
+
+          {/* Publicité (visiteurs et comptes gratuits) */}
+          {adSecondsLeft > 0 && (
+            <div className="ad-box">
+              <div id="ad-slot" />
+              <p>
+                📢 Regarde cette pub avant la fin de ton téléchargement…{" "}
+                {adSecondsLeft}s
+              </p>
+            </div>
+          )}
+
           <div className="supported">
             <strong>Formats disponibles selon la source :</strong>
             {" "}MP4 · MP3 · HD · Audio
@@ -107,14 +136,10 @@ export function HomeView({
                   downloadingKey={downloadingKey}
                   downloadProgress={downloadProgress}
                   onDownload={handleDownload}
+                  onCancel={cancelDownload}
                   limits={media?.limits}
                 />
-                {adSecondsLeft > 0 && (
-                <div className="ad-box">
-                  <div id="ad-slot" />
-                  <p>📢 Regarde cette pub avant la fin de ton téléchargement… {adSecondsLeft}s</p>
-                </div>
-              )}
+
                 <div className={noticeClass} id="notice">
                   {notice.message}
                 </div>

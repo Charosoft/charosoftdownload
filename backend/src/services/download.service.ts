@@ -14,6 +14,7 @@ export interface DownloadOptions {
   formatId: string;
   hasAudio: boolean;
   onProgress?: (progress: number) => void;
+  signal?: AbortSignal;
   plan: Plan;
   maxBytes: number | null;
   maxDuration: number | null;
@@ -41,7 +42,8 @@ function buildDownloadFileName(title: string, extension: string): string {
 function runYtDlp(
   args: string[],
   outputTemplate: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  signal?: AbortSignal
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -58,7 +60,8 @@ function runYtDlp(
         "--print",
         "after_move:filepath",
       ],
-      { stdio: ["ignore", "pipe", "pipe"] }
+      // Le signal arrête yt-dlp dès que l'annulation est demandée.
+      { stdio: ["ignore", "pipe", "pipe"], signal }
     );
 
     let stdout = "";
@@ -179,6 +182,21 @@ function buildFormatSelector(options: DownloadOptions): string {
   ].join("/");
 }
 
+/** Supprime tous les fichiers (même partiels) d'un téléchargement. */
+async function removeJobFiles(jobId: string) {
+  try {
+    const prefix = `charosoft-${jobId}`;
+
+    for (const file of await readdir(TEMP_DIR)) {
+      if (file.startsWith(prefix)) {
+        await rm(path.resolve(TEMP_DIR, file), { force: true });
+      }
+    }
+  } catch {
+    // Nettoyage silencieux
+  }
+}
+
 export async function downloadMedia(
   options: DownloadOptions
 ): Promise<{ filePath: string; fileName: string }> {
@@ -227,9 +245,16 @@ export async function downloadMedia(
     finalPath = await runYtDlp(
       [...args, options.url],
       temporaryTemplate,
-      options.onProgress
+      options.onProgress,
+      options.signal
     );
   } catch (error) {
+    // Annulation demandée par la personne : on nettoie et on s'arrête.
+    if (options.signal?.aborted) {
+      await removeJobFiles(jobId);
+      throw new Error("CANCELLED");
+    }
+
     if (error instanceof Error && error.message.startsWith("NO_OUTPUT")) {
       // On affiche la vraie sortie de yt-dlp pour comprendre la cause.
       console.error("yt-dlp sans fichier :", error.message);
@@ -241,6 +266,12 @@ export async function downloadMedia(
       throw new Error("Le média n'a pas pu être téléchargé.");
     }
     throw error;
+  }
+
+  // Annulé juste au moment où yt-dlp se terminait.
+  if (options.signal?.aborted) {
+    await removeJobFiles(jobId);
+    throw new Error("CANCELLED");
   }
 
   if (!existsSync(finalPath)) {
