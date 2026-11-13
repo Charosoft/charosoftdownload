@@ -95,6 +95,7 @@ export default function Register() {
         </Link>
 
         <div className="mb-7 text-center">
+          <img src="/logo.png" alt="Charosoft" className="mx-auto mb-4 h-16 w-auto" />
           <h1 className="text-3xl font-bold text-white">Créer un compte</h1>
           <p className="mt-2 text-sm text-muted">
             Prépare ton espace personnel.

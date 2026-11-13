@@ -80,6 +80,7 @@ export default function Login() {
         </Link>
 
         <div className="mb-7 text-center">
+          <img src="/logo.png" alt="Charosoft" className="mx-auto mb-4 h-16 w-auto" />
           <h1 className="text-3xl font-bold text-white">Bon retour !</h1>
           <p className="mt-2 text-sm text-muted">
             Connecte-toi à ton espace personnel.

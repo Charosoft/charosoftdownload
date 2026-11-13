@@ -35,9 +35,19 @@ export function limitMessage(plan: Plan): string {
 }
 
 export class LimitExceededError extends Error {
-  constructor(plan: Plan) {
-    super(limitMessage(plan));
+  constructor(plan: Plan, message?: string) {
+    super(message ?? limitMessage(plan));
   }
+}
+
+function durationLabel(seconds: number): string {
+  if (seconds >= 3600) return `${Number((seconds / 3600).toFixed(1))} h`;
+  if (seconds >= 60) return `${Math.round(seconds / 60)} min`;
+  return `${seconds} s`;
+}
+
+export function durationMessage(): string {
+  return `Ce média est trop long (limite : ${durationLabel(MAX_DURATION)}). Choisis un média plus court.`;
 }
 
 /** Limites exposées au frontend pour griser les formats trop lourds. */

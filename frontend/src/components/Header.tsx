@@ -30,7 +30,7 @@ export default function Header() {
     <header className="site-header">
       <div className="site-container site-nav">
         <Link className="site-brand" to="/" onClick={closeMenu}>
-          <div className="site-brand-mark">i</div>
+          <img src="/logo.png" alt="Charosoft" style={{ height: 36, width: "auto" }} />
           <div className="site-brand-name">
             CHAROSOFT <span>DOWNLOAD</span>
           </div>

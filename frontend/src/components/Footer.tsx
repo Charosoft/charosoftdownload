@@ -43,21 +43,7 @@ export default function Footer() {
               gap-3
             "
           >
-            <div
-              className="
-                flex
-                h-9
-                w-9
-                items-center
-                justify-center
-                rounded-xl
-                bg-[#ff7a00]
-                font-black
-                text-black
-              "
-            >
-            <img src="" alt="" />
-            </div>
+            <img src="/logo.png" alt="Charosoft" className="h-9 w-auto" />
 
             <div>
               <div className="text-sm font-black tracking-[0.13em] text-white">
@@ -71,7 +57,15 @@ export default function Footer() {
           </p>
 
           <p className="mt-2 text-xs text-[#686f79]">
-            Produit par Charosoft.
+            Conçu par{" "}
+            <a
+              href="https://charosoft.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-[#ff7a00] transition hover:underline"
+            >
+              Charosoft
+            </a>
           </p>
         </div>
 

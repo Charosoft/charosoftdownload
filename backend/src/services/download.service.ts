@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { LimitExceededError, type Plan } from "../config/limits.js";
+import { LimitExceededError, durationMessage, type Plan } from "../config/limits.js";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -259,7 +259,11 @@ export async function downloadMedia(
       // On affiche la vraie sortie de yt-dlp pour comprendre la cause.
       console.error("yt-dlp sans fichier :", error.message);
 
-      if (/larger than|does not pass filter|max-filesize/i.test(error.message)) {
+      if (/does not pass filter/i.test(error.message)) {
+        throw new LimitExceededError(options.plan, durationMessage());
+      }
+
+      if (/larger than|max-filesize/i.test(error.message)) {
         throw new LimitExceededError(options.plan);
       }
 

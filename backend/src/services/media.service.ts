@@ -68,6 +68,10 @@ function runYtDlp(url: string): Promise<YtDlpInfo> {
 
     let stdout = "";
     let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("timed out : analyse trop longue"));
+    }, Number(process.env.ANALYZE_TIMEOUT_MS) || 60_000);
 
     child.stdout.on("data", (data) => {
       stdout += data.toString();
@@ -78,6 +82,7 @@ function runYtDlp(url: string): Promise<YtDlpInfo> {
     });
 
     child.on("error", (error) => {
+      clearTimeout(timer);
       reject(error);
     });
 

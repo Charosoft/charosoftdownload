@@ -21,6 +21,7 @@ interface Job {
   filePath?: string;
   fileName?: string;
   size?: number;
+  owner: string;
   error?: string;
   createdAt: number;
   listeners: Set<Response>;
@@ -189,9 +190,22 @@ export async function startDownload(req: Request, res: Response) {
     });
   }
 
+    // Une personne (compte, ou IP pour un visiteur) = un téléchargement à la fois.
+  const owner: string = res.locals.authUser?.id ?? `ip:${req.ip}`;
+  const alreadyRunning = [...jobs.values()].some(
+    (j) => j.status === "running" && j.owner === owner
+  );
+  if (alreadyRunning) {
+    return res.status(429).json({
+      success: false,
+      message: "Tu as déjà un téléchargement en cours. Attends qu'il se termine.",
+    });
+  }
+
   const job: Job = {
     id: crypto.randomUUID(),
     status: "running",
+    owner,
     progress: 0,
     createdAt: Date.now(),
     listeners: new Set(),

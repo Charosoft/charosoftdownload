@@ -1,5 +1,5 @@
 import "./index.css";
-import React from "react";
+import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 
 import {
@@ -7,6 +7,7 @@ import {
   Routes,
   Route,
   Outlet,
+  useLocation,
 } from "react-router-dom";
 
 // Page principale du téléchargement
@@ -29,7 +30,15 @@ import Admin from "./pages/Admin";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import AuthProvider from "./features/auth/AuthProvider";
+function ScrollToTop() {
+  const { pathname } = useLocation();
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
 
 /**
  * Layout public commun.
@@ -45,6 +54,8 @@ function PublicLayout() {
   );
 }
 
+
+
 /**
  * Point d'entrée principal de CHAROSOFT DOWNLOAD.
  */
@@ -53,6 +64,7 @@ ReactDOM.createRoot(
 ).render(
   <React.StrictMode>
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <Routes>
           <Route element={<PublicLayout />}>
