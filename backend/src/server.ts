@@ -18,6 +18,7 @@ import accountRoutes from "./routes/account.routes.js";
 
 
 const app = express();
+app.set("trust proxy", 1);
 
 const PORT = Number(process.env.PORT) || 3000;
 
